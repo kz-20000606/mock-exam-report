@@ -1,0 +1,8 @@
+# Never commit student information, imported exams, or local backups
+*.xlsx
+*.xls
+*.xlsm
+*backup*.json
+*バックアップ*.json
+ui_test.png
+/test_ui.py
