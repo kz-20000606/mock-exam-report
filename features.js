@@ -90,7 +90,91 @@ async function restoreAllWorkspaces(file){const data=JSON.parse(await file.text(
 const oldBackup=$('#backupInput');if(oldBackup){const fresh=oldBackup.cloneNode(true);oldBackup.replaceWith(fresh);fresh.addEventListener('change',async e=>{const file=e.target.files?.[0];e.target.value='';if(!file)return;try{await restoreAllWorkspaces(file)}catch(err){toast('復元に失敗しました：'+err.message,'error')}})}
 const oldClear=clearAll;
 clearAll=function(){if(!confirm(`${activeWorkspace.replace(':','年度・')} の成績データだけを削除します。保存済みの成績表は残ります。続行しますか？`))return;if(prompt('削除する場合は「削除」と入力してください。')!=='削除')return;copyStateIntoCurrent(DEFAULT_DATA());selected.clear();save();goto('home');toast('現在の年度・学年の成績を削除しました。')};
-const baseCommitBatch=commitBatchImport;
-commitBatchImport=function(){const chosen=batchDrafts.filter(d=>d.selected);for(const d of chosen){if(d.error)continue;const id=wk(yearOfDate(d.meta.date),validGrade(d.meta.grade));if(id!==activeWorkspace){toast(`このファイルは「${id.replace(':','年度・')}」の模試です。画面上部で年度・学年を切り替えてから登録してください：${d.file.name}`,'error');return}}return baseCommitBatch()};
+// Route each imported Excel file to the grade/year detected from its own metadata.
+// The current workspace is only a view filter; it is not an import restriction.
+const originalBatchPreview = renderBatchImport;
+renderBatchImport = function(){
+  originalBatchPreview();
+  const table = $('#appView .data-table');
+  if (!table) return;
+  const heading = table.querySelector('thead tr');
+  if (heading) {
+    const cell = document.createElement('th');
+    cell.textContent = '自動登録先';
+    heading.insertBefore(cell, heading.children[3] || null);
+  }
+  const rows = table.querySelectorAll('tbody tr');
+  rows.forEach((row,i)=>{
+    const d=batchDrafts[i];
+    if (!d) return;
+    const cell=document.createElement('td');
+    const grade=validGrade(d.meta?.grade);
+    const year=d.meta?.date?yearOfDate(d.meta.date):null;
+    cell.textContent=d.error?'—':year?`${year}年度・${grade}`:'要確認';
+    if(grade==='未分類' || !year) cell.style.color='#a34e2e';
+    row.insertBefore(cell,row.children[3]||null);
+  });
+  const intro = document.createElement('p');
+  intro.className = 'notice';
+  intro.textContent='Excelごとに年度・学年を判別し、別々の管理先へ一括登録します。画面上部の学年切り替えは不要です。認識が誤っている場合は「詳細」で修正してください。';
+  const step=$('#appView .stepbar');
+  if(step)step.insertAdjacentElement('afterend',intro);
+};
+
+commitBatchImport=function(){
+  const chosen=batchDrafts.filter(d=>d.selected);
+  if(!chosen.length)return toast('登録するファイルを選択してください。','error');
+  const staged=new Map();
+  let scoreCount=0,newCount=0;
+  const destinations=new Map();
+  const getStage=(id)=>{
+    if(!staged.has(id)){
+      const raw=localStorage.getItem(storageKey(id));
+      let data;
+      try{data=raw?JSON.parse(raw):DEFAULT_DATA()}catch(_){throw Error(`保存中の${id}のデータを読み込めません。バックアップを確認してください。`)}
+      if(!Array.isArray(data.students)||!Array.isArray(data.exams)||!Array.isArray(data.scores))throw Error(`${id}の保存データが不正です。`);
+      staged.set(id,{...data,students:data.students.map(s=>({...s})),exams:data.exams.map(e=>({...e})),scores:data.scores.map(s=>({...s}))});
+    }
+    return staged.get(id);
+  };
+  try {
+    // Validate all files and their target workspaces before changing saved data.
+    for(const d of chosen){
+      const problem=validateBatchDraft(d);
+      if(problem)throw Error(`${d.file.name}：${problem}`);
+      const grade=validGrade(d.meta.grade);
+      if(grade==='未分類')throw Error(`${d.file.name}：学年を判別できません。詳細画面で中1・中2・中3を指定してください。`);
+      const id=wk(yearOfDate(d.meta.date),grade),bundle=getStage(id),m=d.meta;
+      if(bundle.exams.some(e=>e.name===m.name && e.date===m.date && validGrade(e.grade)===grade)){
+        throw Error(`${d.file.name}：${id.replace(':','年度・')}に同じ模試が登録されています。`);
+      }
+      const exam={id:makeId(),name:m.name,date:m.date,grade,round:m.round};
+      bundle.exams.push(exam);
+      for(const p of d.people){
+        const matches=bundle.students.filter(s=>norm(s.name)===norm(p.name));
+        if(matches.length>1)throw Error(`${d.file.name}：同姓同名の生徒を一意に照合できません（${p.name}）。`);
+        let student=matches[0];
+        if(!student){student={id:makeId(),name:p.name,grade};bundle.students.push(student);newCount++}
+        bundle.scores.push({studentId:student.id,examId:exam.id,...p.scores});
+        scoreCount++;
+      }
+      destinations.set(id,(destinations.get(id)||0)+1);
+    }
+    const targets=[...destinations].map(([id,n])=>`${id.replace(':','年度・')}：${n}ファイル`).join('\n');
+    if(!confirm(`${chosen.length}ファイルを自動で年度・学年別に登録します。\n\n${targets}\n\n成績${scoreCount}件、新規生徒${newCount}名。\nこの内容で登録しますか？`))return;
+    // localStorage has no multi-key transaction: retain old snapshots and roll back on errors.
+    const oldMeta=localStorage.getItem(WORKSPACES_META_KEY);
+    const oldValues=new Map([...staged.keys()].map(id=>[id,localStorage.getItem(storageKey(id))]));
+    try{
+      for(const [id,data] of staged)safeWriteWorkspace(id,data);
+    }catch(e){
+      for(const [id,value] of oldValues){try{if(value===null)localStorage.removeItem(storageKey(id));else localStorage.setItem(storageKey(id),value)}catch(_){}}
+      try{if(oldMeta===null)localStorage.removeItem(WORKSPACES_META_KEY);else localStorage.setItem(WORKSPACES_META_KEY,oldMeta)}catch(_){}
+      throw Error('保存に失敗したため登録を取り消しました。空き容量を確認してください。');
+    }
+    load();selected.clear();batchDrafts=[];goto('exams');
+    toast(`${chosen.length}ファイル・${scoreCount}件を年度・学年別に登録しました。表示する学年は画面上部から切り替えられます。`);
+  }catch(e){toast(e.message,'error')}
+};
 archiveMenu();render();
 if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('./sw.js').catch(()=>{});
