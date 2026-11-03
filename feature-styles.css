@@ -20,3 +20,9 @@
 #studentYearFilter{width:116px;min-width:116px}
 #studentGradeFilter{width:90px;min-width:90px}
 @media(max-width:900px){.student-inline-filter{flex-wrap:nowrap}}
+
+/* Back navigation is part of the page heading, not the PWA/browser history. */
+.view-heading-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.app-back-button{flex-shrink:0;padding:5px 11px;font-size:12px;background:#fff}
+.app-back-button[hidden]{display:none!important}
+@media print{.app-back-button{display:none!important}}
