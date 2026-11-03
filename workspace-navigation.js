@@ -50,47 +50,6 @@
     return priorGoto(destination);
   };
 
-  // Keep the global workspace picker on other pages, but use compact local
-  // year/grade selectors beside the student search field on this screen.
-  const priorRender = render;
-  render = function() {
-    priorRender();
-    const topPicker = $('#workspaceControlHost');
-    if (topPicker) topPicker.style.display = route === 'students' ? 'none' : '';
-    if (route !== 'students') return;
-
-    // Remove the former separate student-workspace bar, if present.
-    $$('.student-workspace-bar').forEach(el => el.remove());
-
-    const search = $('#studentSearch');
-    const legacyGradeFilter = $('#gradeFilter');
-    if (!search || !legacyGradeFilter) return;
-
-    const [year, grade] = activeWorkspace.split(':');
-    const storedYears = workspaceIds().map(id => Number(id.split(':')[0]));
-    const years = [...new Set([Number(year), ...storedYears])]
-      .filter(Number.isFinite).sort((a,b) => b-a);
-
-    const yearField = document.createElement('label');
-    yearField.className = 'student-inline-filter';
-    yearField.innerHTML = '<span>年度</span><select class="field select" id="studentYearFilter" aria-label="生徒一覧の年度">' +
-      years.map(y => `<option value="${y}" ${String(y)===year?'selected':''}>${y}年度</option>`).join('') +
-      '</select>';
-
-    const gradeField = document.createElement('label');
-    gradeField.className = 'student-inline-filter';
-    gradeField.innerHTML = '<span>学年</span><select class="field select" id="studentGradeFilter" aria-label="生徒一覧の学年">' +
-      ['中1','中2','中3','未分類'].map(g => `<option value="${g}" ${g===grade?'selected':''}>${g}</option>`).join('') +
-      '</select>';
-
-    search.after(yearField,gradeField);
-    legacyGradeFilter.remove();
-    const changeContext = () => {
-      switchWorkspace(wk($('#studentYearFilter').value,$('#studentGradeFilter').value));
-    };
-    $('#studentYearFilter').addEventListener('change',changeContext);
-    $('#studentGradeFilter').addEventListener('change',changeContext);
-  };
   persist();
   render();
 })();
