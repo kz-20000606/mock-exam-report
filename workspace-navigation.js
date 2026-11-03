@@ -50,26 +50,46 @@
     return priorGoto(destination);
   };
 
-  // Provide a visible list of available grades even when the current grade has
-  // no registered students (the old gradeFilter was populated from one group).
+  // Keep the global workspace picker on other pages, but use compact local
+  // year/grade selectors beside the student search field on this screen.
   const priorRender = render;
   render = function() {
     priorRender();
+    const topPicker = $('#workspaceControlHost');
+    if (topPicker) topPicker.style.display = route === 'students' ? 'none' : '';
     if (route !== 'students') return;
-    const section = $('#appView .section');
-    if (!section || $('#studentWorkspacePicker')) return;
-    const registeredYears = workspaceIds().map(id => Number(id.split(':')[0]));
-    const currentYear = Number(activeWorkspace.split(':')[0]);
-    const years = [...new Set([currentYear, ...registeredYears])].sort((a,b) => b-a);
-    const options = years.flatMap(year => ['中1','中2','中3'].map(grade => {
-      const id = wk(year,grade);
-      return `<option value="${id}" ${id === activeWorkspace ? 'selected' : ''}>${year}年度・${grade}</option>`;
-    })).join('');
-    const bar = document.createElement('div');
-    bar.className = 'student-workspace-bar';
-    bar.innerHTML = `<label for="studentWorkspacePicker">生徒一覧の年度・学年</label><select class="field" id="studentWorkspacePicker">${options}</select><span class="muted tiny">保存済み成績表の学年選択とは独立しています。</span>`;
-    section.before(bar);
-    $('#studentWorkspacePicker').addEventListener('change', e => switchWorkspace(e.target.value));
+
+    // Remove the former separate student-workspace bar, if present.
+    $$('.student-workspace-bar').forEach(el => el.remove());
+
+    const search = $('#studentSearch');
+    const legacyGradeFilter = $('#gradeFilter');
+    if (!search || !legacyGradeFilter) return;
+
+    const [year, grade] = activeWorkspace.split(':');
+    const storedYears = workspaceIds().map(id => Number(id.split(':')[0]));
+    const years = [...new Set([Number(year), ...storedYears])]
+      .filter(Number.isFinite).sort((a,b) => b-a);
+
+    const yearField = document.createElement('label');
+    yearField.className = 'student-inline-filter';
+    yearField.innerHTML = '<span>年度</span><select class="field select" id="studentYearFilter" aria-label="生徒一覧の年度">' +
+      years.map(y => `<option value="${y}" ${String(y)===year?'selected':''}>${y}年度</option>`).join('') +
+      '</select>';
+
+    const gradeField = document.createElement('label');
+    gradeField.className = 'student-inline-filter';
+    gradeField.innerHTML = '<span>学年</span><select class="field select" id="studentGradeFilter" aria-label="生徒一覧の学年">' +
+      ['中1','中2','中3','未分類'].map(g => `<option value="${g}" ${g===grade?'selected':''}>${g}</option>`).join('') +
+      '</select>';
+
+    search.after(yearField,gradeField);
+    legacyGradeFilter.remove();
+    const changeContext = () => {
+      switchWorkspace(wk($('#studentYearFilter').value,$('#studentGradeFilter').value));
+    };
+    $('#studentYearFilter').addEventListener('change',changeContext);
+    $('#studentGradeFilter').addEventListener('change',changeContext);
   };
   persist();
   render();
