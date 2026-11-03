@@ -11,3 +11,12 @@
 #studentYearFilter{width:115px}
 #studentGradeFilter{width:90px}
 @media(max-width:780px){.student-inline-filter{flex-wrap:nowrap}.student-inline-filter select.field{min-width:80px}}
+
+/* Workspace controls appear inside each screen instead of the top header. */
+.workspace-context-bar{display:flex;align-items:center;justify-content:flex-end;margin:0 0 16px;padding:8px 0}
+.workspace-context-bar .workspace-controls{justify-content:flex-end}
+/* Student search / year / grade are a single inline filter row. */
+.student-inline-filter{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;font-size:12px;color:#465565;font-weight:600}
+#studentYearFilter{width:116px;min-width:116px}
+#studentGradeFilter{width:90px;min-width:90px}
+@media(max-width:900px){.student-inline-filter{flex-wrap:nowrap}}
