@@ -54,13 +54,97 @@ function guessMapping(rows,maxCols){const maxR=Math.min(20,rows.length);let best
  const mapping={name:-1};for(let r=0;r<maxR;r++){for(let c=0;c<maxCols;c++){const v=CLEAN(rows[r]?.[c]);if(v==='氏名')mapping.name=c;for(const [key,label] of SUBJECTS)if(v===CLEAN(label+'偏差値'))mapping[key]=c}}return {headerRow:Math.min(3,rows.length-1),mapping,score:0}}
 function parseMeta(rows,filename){const headline=rows.slice(0,4).flatMap(r=>r||[]).filter(x=>typeof x==='string').join('　');let date='';const ja=headline.match(/(20\d{2})年\s*(\d{1,2})月\s*(\d{1,2})日/);const iso=headline.match(/(20\d{2})[-\/](\d{1,2})[-\/](\d{1,2})/);const m=ja||iso;if(m)date=`${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;const rm=headline.match(/第\s*(\d+)\s*回/),gm=headline.match(/中\s*([123１２３])/),nm=headline.match(/(進研\s*S\s*テスト|[^\s　（）()]{2,16}テスト|[^\s　（）()]{2,16}模試)/);const grade=gm?'中'+gm[1].normalize('NFKC'):'';return {date:date||new Date().toISOString().slice(0,10),round:rm?Number(rm[1]):null,grade,name:(nm?nm[1].replace(/\s/g,''):(filename||'模試').replace(/\.xlsx$/i,''))+(rm?` 第${rm[1]}回`:'')};}
 function previewRows(rows,mapping,headerRow){const result=[];for(let r=headerRow+1;r<rows.length;r++){const row=rows[r]||[],name=String(row[mapping.name]??'').trim();if(!name||name==='氏名'||name==='合計'||name==='平均')continue;const scores={};for(const [k] of SUBJECTS)scores[k]=mapping[k]===undefined||mapping[k]<0?null:num(row[mapping[k]]);if(SUBJECTS.every(([k])=>scores[k]===null))continue;result.push({name,scores,excelRow:r+1});}return result}
-async function startImport(files){pendingFiles=[...files];pendingIndex=0;if(!pendingFiles.length)return;goto('exams');await nextImport()}
-async function nextImport(){if(pendingIndex>=pendingFiles.length){importDraft=null;render();toast('選択したExcelファイルの確認が完了しました。');return}const file=pendingFiles[pendingIndex];try{const sheet=await readXlsx(file),info=guessMapping(sheet.rows,sheet.maxCols),meta=parseMeta(sheet.rows,file.name);importDraft={file,sheet,meta,headerRow:info.headerRow,mapping:info.mapping};renderImport()}catch(e){importDraft=null;render();toast(`${file.name}: ${e.message}`,'error');pendingIndex++;if(pendingIndex<pendingFiles.length)setTimeout(nextImport,50)}}
-function renderImport(){const d=importDraft;if(!d)return;route='exams';header('Excelの取り込み','項目を確認してから登録します');const m=d.mapping,rows=d.sheet.rows,cols=d.sheet.maxCols;const options=Array.from({length:cols},(_,i)=>`<option value="${i}">${colName(i)}列　${escapeHTML(String(rows[d.headerRow]?.[i]??rows[d.headerRow+1]?.[i]??'').slice(0,14))}</option>`).join('');const names=[['name','生徒氏名'],...SUBJECTS];$('#appView').innerHTML=`<div class="stepbar"><span class="done">✓ ファイル選択</span><span class="now">② 項目・生徒の確認</span><span>③ 登録</span></div><div class="section"><div class="section-head"><h2>${escapeHTML(d.file.name)}</h2><span class="muted tiny">${pendingIndex+1} / ${pendingFiles.length} ファイル</span></div><div class="section-body"><div class="two-cols"><div><div class="form-group"><label for="metaName">模試名</label><input id="metaName" class="field" value="${escapeHTML(d.meta.name)}"></div><div class="form-group"><label for="metaDate">実施日</label><input id="metaDate" type="date" class="field" value="${escapeHTML(d.meta.date)}"></div><div class="form-group"><label for="metaGrade">学年</label><input id="metaGrade" class="field" value="${escapeHTML(d.meta.grade)}" placeholder="中2"></div></div><div class="notice" style="align-self:start"><strong>自動認識結果</strong><p>教科名と「偏差値」の見出しを組み合わせて列を判定します。列位置が変わっていても対応できます。</p><p>判定が誤っている項目のみ列を変更してください。</p></div></div><h3 style="font-size:15px;margin:18px 0 8px">読み取る列</h3><div class="mapping-grid">${names.map(([k,label])=>`<div class="mapping-row"><span>${label}</span><select class="field mapping-select" data-key="${k}"><option value="-1">選択されていません</option>${options}</select></div>`).join('')}</div><div class="controls spread" style="margin-top:20px"><div class="controls"><button class="btn" id="refreshPreview">この列でプレビュー</button><button class="btn" id="skipImport">このファイルを飛ばす</button></div><button class="btn primary" id="commitImport">内容を確認して登録</button></div></div></div><div id="previewArea"></div>`;$$('.mapping-select').forEach(el=>{const n=m[el.dataset.key];el.value=(n??-1).toString();el.addEventListener('change',()=>{d.mapping[el.dataset.key]=Number(el.value);drawImportPreview()})});$('#metaName').addEventListener('input',e=>d.meta.name=e.target.value);$('#metaDate').addEventListener('input',e=>d.meta.date=e.target.value);$('#metaGrade').addEventListener('input',e=>d.meta.grade=e.target.value);$('#refreshPreview').addEventListener('click',drawImportPreview);$('#commitImport').addEventListener('click',commitImport);$('#skipImport').addEventListener('click',async()=>{pendingIndex++;await nextImport()});drawImportPreview()}
-function drawImportPreview(){const d=importDraft,m=d.mapping;const required=['name',...SUBJECTS.map(([k])=>k)],missing=required.filter(k=>m[k]==null||m[k]<0);const assigned=required.filter(k=>m[k]>=0).map(k=>m[k]),duplicate=assigned.length!==new Set(assigned).size;let people=[];if(!missing.length&&!duplicate)people=previewRows(d.sheet.rows,m,d.headerRow);d.people=people;d.hasError=missing.length>0||duplicate||people.length===0;const cl=missing.length?`<div class="error">列を指定してください：${missing.map(k=>k==='name'?'氏名':SUBJECTS.find(x=>x[0]===k)?.[1]).join('、')}</div>`:'';const du=duplicate?'<div class="error">同じ列が複数項目に割り当てられています。</div>':'';const known=people.filter(p=>state.students.some(s=>norm(s.name)===norm(p.name) && (!d.meta.grade||!s.grade||s.grade===d.meta.grade))).length;const ambiguous=people.filter(p=>state.students.filter(s=>norm(s.name)===norm(p.name)).length>1).length;$('#previewArea').innerHTML=`${section('読み込みプレビュー',`${cl}${du}<p class="muted tiny">検出した生徒：${people.length}名　／　既存の候補：${known}名　／　新規の候補：${people.length-known}名${ambiguous?'　／　同名の要確認：'+ambiguous+'名':''}</p><div class="table-wrap"><table class="data-table"><thead><tr><th>Excel行</th><th>氏名</th>${SUBJECTS.map(([,l])=>`<th class="numeric">${l}</th>`).join('')}</tr></thead><tbody>${people.slice(0,8).map(p=>`<tr><td>${p.excelRow}</td><td>${escapeHTML(p.name)}</td>${SUBJECTS.map(([k])=>`<td class="numeric">${fmt(p.scores[k])}</td>`).join('')}</tr>`).join('')||'<tr><td colspan="8">読み込み対象がありません。</td></tr>'}</tbody></table></div><p class="footer-note">先頭8名のプレビューです。ここで表示した項目以外（会員番号や学校名など）は保存しません。</p>`)}`;$('#commitImport').disabled=d.hasError;}
-async function commitImport(){const d=importDraft;if(!d||d.hasError)return;const meta=d.meta;if(!meta.name.trim()||!/^\d{4}-\d{2}-\d{2}$/.test(meta.date))return toast('模試名と実施日を確認してください。','error');const existing=state.exams.find(e=>e.name===meta.name&&e.date===meta.date&&e.grade===meta.grade);if(existing){toast('同じ模試名・実施日・学年のデータが登録されています。重複登録を防止しました。','error');return}let names=new Set(),newStudents=[],records=[];for(const p of d.people){const idKey=norm(p.name);if(names.has(idKey)){toast('同じExcel内に同名の生徒が複数存在します。元ファイルを確認してください：'+p.name,'error');return}names.add(idKey);const matches=state.students.filter(s=>norm(s.name)===idKey && (!s.grade||!meta.grade||s.grade===meta.grade));if(matches.length>1){toast('同姓同名の生徒が複数登録されています。先にデータを整理してください：'+p.name,'error');return}const stu=matches[0]||{id:makeId(),name:p.name,grade:meta.grade};if(!matches[0])newStudents.push(stu);records.push({studentId:stu.id,examId:null,...p.scores})}const exam={id:makeId(),name:meta.name,date:meta.date,grade:meta.grade,round:meta.round};if(!confirm(`${meta.name}（${meta.date}）を登録します。\n既存候補 ${d.people.length-newStudents.length}名、新規 ${newStudents.length}名。\n氏名による自動照合に誤りがないか確認しましたか？`))return;records.forEach(r=>r.examId=exam.id);state.students.push(...newStudents);state.exams.push(exam);state.scores.push(...records);if(!save())return;pendingIndex++;if(pendingIndex<pendingFiles.length){await nextImport()}else{importDraft=null;goto('exams');toast(`${meta.name}：${records.length}名の成績を登録しました。`);}}
+/* Batch Excel import: inspect all files before committing anything. */
+let batchDrafts=[];
+let batchActive=0;
+let batchBusy=false;
+function validateBatchDraft(d){
+  if(d.error)return d.error;
+  const required=['name',...SUBJECTS.map(([k])=>k)];
+  const missing=required.filter(k=>d.mapping[k]==null||d.mapping[k]<0);
+  if(missing.length)return '列の指定が不足しています：'+missing.map(k=>k==='name'?'氏名':SUBJECTS.find(s=>s[0]===k)[1]).join('、');
+  const indices=required.map(k=>d.mapping[k]);
+  if(new Set(indices).size!==indices.length)return '複数の項目に同じ列が指定されています。';
+  d.people=previewRows(d.sheet.rows,d.mapping,d.headerRow);
+  if(!d.people.length)return '生徒の成績が見つかりません。';
+  if(!d.meta.name?.trim()||!/^\d{4}-\d{2}-\d{2}$/.test(d.meta.date))return '模試名と実施日を確認してください。';
+  const names=new Set();
+  for(const p of d.people){const key=norm(p.name);if(names.has(key))return '同じファイル内に同名の生徒がいます：'+p.name;names.add(key);}
+  return '';
+}
+async function startImport(files){
+  if(batchBusy)return;
+  batchBusy=true;batchDrafts=[];batchActive=0;route='exams';
+  header('Excelの一括取り込み','選択したファイルをすべて解析しています');
+  $('#appView').innerHTML='<section class="section"><div class="section-body"><h2>複数のExcelを読み取り中…</h2><p id="batchProgress" class="muted">ファイルを確認しています。</p></div></section>';
+  for(let i=0;i<files.length;i++){
+    const file=files[i];
+    if($('#batchProgress'))$('#batchProgress').textContent=`${i+1} / ${files.length}：${file.name}`;
+    try{
+      const sheet=await readXlsx(file),info=guessMapping(sheet.rows,sheet.maxCols),meta=parseMeta(sheet.rows,file.name);
+      const d={file,sheet,meta,headerRow:info.headerRow,mapping:info.mapping,selected:true,error:''};
+      d.problem=validateBatchDraft(d);batchDrafts.push(d);
+    }catch(e){batchDrafts.push({file,error:e.message,selected:false,problem:e.message});}
+  }
+  batchBusy=false;
+  renderBatchImport();
+}
+function renderBatchImport(){
+  route='exams';header('Excelの一括取り込み','全ファイルを確認後、一度に登録できます');
+  const d=batchDrafts[batchActive];
+  const selected=batchDrafts.filter(x=>x.selected),valid=selected.filter(x=>!x.problem);
+  const options=d&&!d.error?Array.from({length:d.sheet.maxCols},(_,i)=>`<option value="${i}">${colName(i)}列　${escapeHTML(String(d.sheet.rows[d.headerRow]?.[i]??d.sheet.rows[d.headerRow+1]?.[i]??'').slice(0,18))}</option>`).join(''):'';
+  $('#appView').innerHTML=`
+    <div class="stepbar"><span class="done">✓ ファイル選択</span><span class="now">② ${batchDrafts.length}ファイルの一括確認</span><span>③ 一括登録</span></div>
+    ${section('読み込み対象',`<p class="muted tiny">チェックしたファイルだけ登録します。項目が認識できなかった場合は、下部で列を修正してください。</p>
+      <div class="table-wrap"><table class="data-table"><thead><tr><th>登録</th><th>ファイル名</th><th>模試名・実施日</th><th class="numeric">人数</th><th>読み取り結果</th><th>確認</th></tr></thead><tbody>
+      ${batchDrafts.map((x,i)=>`<tr style="${i===batchActive?'background:#edf4fb':''}"><td><input type="checkbox" class="batch-select" data-index="${i}" ${x.selected?'checked':''} ${x.error?'disabled':''}></td><td>${escapeHTML(x.file.name)}</td><td>${x.error?'—':escapeHTML(x.meta.name)+' / '+escapeHTML(x.meta.date)}</td><td class="numeric">${x.people?.length??'—'}</td><td style="color:${x.problem?'#b74f3d':'#347354'}">${x.problem?'要確認：'+escapeHTML(x.problem):'✓ 読み取りOK'}</td><td><button class="btn small batch-open" data-index="${i}">${i===batchActive?'確認中':'詳細'}</button></td></tr>`).join('')}
+      </tbody></table></div>`)}
+    ${d?section('選択中のファイル：'+escapeHTML(d.file.name),d.error?`<div class="error">${escapeHTML(d.error)}</div>`:
+      `<div class="two-cols"><div><div class="form-group"><label for="metaName">模試名</label><input id="metaName" class="field" value="${escapeHTML(d.meta.name)}"></div><div class="form-group"><label for="metaDate">実施日</label><input id="metaDate" type="date" class="field" value="${escapeHTML(d.meta.date)}"></div><div class="form-group"><label for="metaGrade">学年</label><input id="metaGrade" class="field" value="${escapeHTML(d.meta.grade)}"></div></div><div class="notice"><strong>見出しから自動判定</strong><p>列の位置が変わっていても、見出しにある教科名と「偏差値」の組み合わせから判定します。</p><p>間違いがあれば下の列選択を変更してください。</p></div></div>
+      <h3 style="font-size:15px;margin:18px 0 8px">読み込む列</h3><div class="mapping-grid">${[['name','生徒氏名'],...SUBJECTS].map(([k,label])=>`<div class="mapping-row"><span>${label}</span><select class="field batch-map" data-key="${k}"><option value="-1">未指定</option>${options}</select></div>`).join('')}</div>
+      <div style="margin-top:14px"><strong>先頭5名の確認</strong><div class="table-wrap"><table class="data-table"><thead><tr><th>氏名</th>${SUBJECTS.map(([,l])=>`<th class="numeric">${l}</th>`).join('')}</tr></thead><tbody>${(d.people||[]).slice(0,5).map(p=>`<tr><td>${escapeHTML(p.name)}</td>${SUBJECTS.map(([k])=>`<td class="numeric">${fmt(p.scores[k])}</td>`).join('')}</tr>`).join('')||'<tr><td colspan="7">列を確認してください。</td></tr>'}</tbody></table></div></div>
+      <div class="controls" style="margin-top:12px"><button class="btn" id="batchRefresh">このファイルの内容を確認</button></div>`):''}
+    <div class="controls spread" style="margin:20px 0"><button class="btn" id="batchCancel">キャンセル</button><div class="controls"><span class="muted">選択：${selected.length}件 / 登録可能：${valid.length}件</span><button class="btn primary" id="batchCommit" ${!selected.length||selected.some(x=>x.problem)?'disabled':''}>選択した${selected.length}ファイルを一括登録</button></div></div>
+  `;
+  $$('.batch-open').forEach(el=>el.addEventListener('click',()=>{batchActive=Number(el.dataset.index);renderBatchImport()}));
+  $$('.batch-select').forEach(el=>el.addEventListener('change',()=>{batchDrafts[Number(el.dataset.index)].selected=el.checked;renderBatchImport()}));
+  if(d&&!d.error){
+    $$('.batch-map').forEach(el=>{el.value=String(d.mapping[el.dataset.key]??-1);el.addEventListener('change',()=>{d.mapping[el.dataset.key]=Number(el.value);d.problem=validateBatchDraft(d);renderBatchImport()})});
+    for(const [id,key] of [['metaName','name'],['metaDate','date'],['metaGrade','grade']])$('#'+id).addEventListener('change',e=>{d.meta[key]=e.target.value;d.problem=validateBatchDraft(d);renderBatchImport()});
+    $('#batchRefresh').addEventListener('click',()=>{d.problem=validateBatchDraft(d);renderBatchImport()});
+  }
+  $('#batchCancel').addEventListener('click',()=>{batchDrafts=[];goto('exams')});
+  $('#batchCommit').addEventListener('click',commitBatchImport);
+}
+function commitBatchImport(){
+  const drafts=batchDrafts.filter(d=>d.selected);
+  if(!drafts.length)return toast('登録するファイルを選んでください。','error');
+  for(const d of drafts){d.problem=validateBatchDraft(d);if(d.problem){batchActive=batchDrafts.indexOf(d);renderBatchImport();return toast('登録前にファイルを確認してください：'+d.file.name,'error')}}
+  const stagedStudents=state.students.map(s=>({...s})),stagedExams=state.exams.map(e=>({...e})),stagedScores=state.scores.map(s=>({...s}));
+  let newCount=0,recordCount=0;
+  for(const d of drafts){
+    const meta=d.meta;
+    if(stagedExams.some(e=>e.name===meta.name&&e.date===meta.date&&e.grade===meta.grade)){
+      batchActive=batchDrafts.indexOf(d);renderBatchImport();return toast('登録済み、または選択ファイル間で模試が重複しています：'+meta.name+' '+meta.date,'error');
+    }
+    const exam={id:makeId(),name:meta.name,date:meta.date,grade:meta.grade,round:meta.round};stagedExams.push(exam);
+    for(const p of d.people){
+      const matches=stagedStudents.filter(s=>norm(s.name)===norm(p.name)&&(!s.grade||!meta.grade||s.grade===meta.grade));
+      if(matches.length>1){batchActive=batchDrafts.indexOf(d);renderBatchImport();return toast('同姓同名の生徒を一意に判別できません：'+p.name,'error')}
+      let stu=matches[0];
+      if(!stu){stu={id:makeId(),name:p.name,grade:meta.grade};stagedStudents.push(stu);newCount++}
+      stagedScores.push({studentId:stu.id,examId:exam.id,...p.scores});recordCount++;
+    }
+  }
+  if(!confirm(`${drafts.length}ファイルをまとめて登録します。\n成績：${recordCount}件、新規生徒：${newCount}名。\n氏名の一致やデータの内容を確認しましたか？`))return;
+  const original={students:state.students,exams:state.exams,scores:state.scores};
+  state.students=stagedStudents;state.exams=stagedExams;state.scores=stagedScores;
+  if(!save()){Object.assign(state,original);return}
+  batchDrafts=[];goto('exams');toast(`${drafts.length}ファイル・${recordCount}件の成績を一括登録しました。`);
+}
 $('#excelInput').addEventListener('change',e=>{const files=Array.from(e.target.files||[]);e.target.value='';if(files.length)startImport(files)});
 $('#backupInput').addEventListener('change',async e=>{const f=e.target.files?.[0];e.target.value='';if(!f)return;try{const parsed=JSON.parse(await f.text());if(parsed.type!=='mock-exam-report-backup'||!Array.isArray(parsed.data?.students)||!Array.isArray(parsed.data?.scores)||!Array.isArray(parsed.data?.exams))throw Error('バックアップの形式が正しくありません。');if(!confirm('現在の登録データをバックアップの内容で置き換えます。よろしいですか？'))return;Object.assign(state,parsed.data);state.comments||={};state.settings||={commentMode:false};selected.clear();if(save()){goto('home');toast('バックアップを復元しました。')}}catch(err){toast('復元できませんでした：'+err.message,'error')}});
-$$('.sidebar nav button').forEach(el=>el.addEventListener('click',()=>{if(importDraft&&!confirm('Excelの取り込みを中断しますか？'))return;importDraft=null;goto(el.dataset.route)}));
+$$('.sidebar nav button').forEach(el=>el.addEventListener('click',()=>{if(batchDrafts.length&&!confirm('Excelの一括取り込みを中断しますか？'))return;batchDrafts=[];goto(el.dataset.route)}));
 window.addEventListener('afterprint',()=>{$('#printRoot').innerHTML=''});
 load();render();
