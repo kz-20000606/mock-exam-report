@@ -56,6 +56,7 @@ function filenameFor(students){const safe=s=>String(s).replace(/[\\/:*?"<>|\x00-
 function openReportDB(){if(archiveDbPromise)return archiveDbPromise;archiveDbPromise=new Promise((resolve,reject)=>{const req=indexedDB.open('mock-exam-report-archive',1);req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains('reports')){const store=db.createObjectStore('reports',{keyPath:'id'});store.createIndex('workspace','workspace',{unique:false});store.createIndex('createdAt','createdAt',{unique:false});}};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});return archiveDbPromise;}
 async function archiveAll(){const db=await openReportDB();return new Promise((resolve,reject)=>{const tx=db.transaction('reports','readonly');const req=tx.objectStore('reports').getAll();req.onsuccess=()=>resolve(req.result||[]);req.onerror=()=>reject(req.error)})}
 async function archivePutMany(items){if(!items.length)return;const db=await openReportDB();return new Promise((resolve,reject)=>{const tx=db.transaction('reports','readwrite');for(const r of items)tx.objectStore('reports').put(r);tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error)})}
+async function archiveClear(){const db=await openReportDB();return new Promise((resolve,reject)=>{const tx=db.transaction('reports','readwrite');tx.objectStore('reports').clear();tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error)})}
 async function archiveRemove(id){const db=await openReportDB();return new Promise((resolve,reject)=>{const tx=db.transaction('reports','readwrite');tx.objectStore('reports').delete(id);tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error)})}
 function reportSelection(){const ids=selected.size?[...selected]:state.students.map(s=>s.id);return ids.map(id=>state.students.find(s=>s.id===id)).filter(Boolean).sort((a,b)=>a.name.localeCompare(b.name,'ja'))}
 function snapshotReports(students){const now=new Date().toISOString();const [year,grade]=activeWorkspace.split(':');return students.map(s=>({id:makeId(),workspace:activeWorkspace,studentId:s.id,name:s.name,year:Number(year),grade,createdAt:now,title:filenameFor([s]),html:paperMarkup(s)}))}
@@ -80,7 +81,7 @@ async function restoreAllWorkspaces(file){const data=JSON.parse(await file.text(
  if(data.version!==2||!data.workspaces||typeof data.workspaces!=='object'||!Array.isArray(data.reports))throw Error('バックアップ形式が不正です');for(const [id,v] of Object.entries(data.workspaces)){if(!/^\d{4}:(中[123]|未分類)$/.test(id)||!Array.isArray(v?.students)||!Array.isArray(v?.exams)||!Array.isArray(v?.scores))throw Error('年度・学年別のデータが不正です')}
  if(!confirm('バックアップ内の年度・学年データで現在の保存内容を置き換えます。続行しますか？'))return;
  // Put archived snapshots first, then replace all workspace records. Existing legacy v1 is not modified.
- await archivePutMany(data.reports.filter(r=>r&&r.id&&typeof r.html==='string'));
+ await archiveClear();await archivePutMany(data.reports.filter(r=>r&&r.id&&typeof r.html==='string'));
  for(const [id,v] of Object.entries(data.workspaces))safeWriteWorkspace(id,v);
  activeWorkspace=data.activeWorkspace in data.workspaces?data.activeWorkspace:Object.keys(data.workspaces)[0]||activeWorkspace;
  localStorage.setItem(ACTIVE_WORKSPACE_KEY,activeWorkspace);load();selected.clear();archiveCurrentId=null;goto('home');toast('バックアップを復元しました。')
