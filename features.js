@@ -52,7 +52,16 @@ function switchWorkspace(id){
  render();
 }
 function workspaceControls(){const [year,grade]=activeWorkspace.split(':');const years=new Set([Number(year),yearOfDate(new Date().toISOString().slice(0,10)),...workspaceIds().map(s=>Number(s.split(':')[0]))]);for(let y=Number(year)-1;y<=Number(year)+1;y++)years.add(y);return `<div class="workspace-controls"><label for="workspaceYear">年度</label><select id="workspaceYear" class="field">${[...years].sort((a,b)=>b-a).map(y=>`<option value="${y}" ${String(y)===year?'selected':''}>${y}年度</option>`).join('')}</select><label for="workspaceGrade">学年</label><select id="workspaceGrade" class="field">${['中1','中2','中3','未分類'].map(g=>`<option value="${g}" ${g===grade?'selected':''}>${g}</option>`).join('')}</select></div>`}
-function refreshWorkspaceControls(){let wrap=$('#workspaceControlHost');if(!wrap){wrap=document.createElement('div');wrap.id='workspaceControlHost';$('.topbar-meta').prepend(wrap)}wrap.innerHTML=workspaceControls();for(const id of ['workspaceYear','workspaceGrade'])$('#'+id).addEventListener('change',()=>switchWorkspace(wk($('#workspaceYear').value,$('#workspaceGrade').value)));$('#currentYear').textContent='';}
+function refreshWorkspaceControls(){
+ const old=$('#workspaceControlHost');if(old)old.remove();
+ $('#currentYear').textContent='';
+ // Student list owns the two selectors next to its search field.
+ if(route==='students')return;
+ const view=$('#appView');if(!view)return;
+ const wrap=document.createElement('div');wrap.id='workspaceControlHost';wrap.className='workspace-context-bar';wrap.innerHTML=workspaceControls();
+ view.prepend(wrap);
+ for(const id of ['workspaceYear','workspaceGrade'])$('#'+id).addEventListener('change',()=>switchWorkspace(wk($('#workspaceYear').value,$('#workspaceGrade').value)));
+}
 function formatNow(){const d=new Date();return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}_${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}${String(d.getSeconds()).padStart(2,'0')}`}
 function filenameFor(students){const safe=s=>String(s).replace(/[\\/:*?"<>|\x00-\x1f]/g,'_').replace(/\s+/g,'').slice(0,48);const [year,grade]=activeWorkspace.split(':');const who=students.length===1?safe(students[0].name):`${students.length}名`;return `模試成績表_${year}年度_${grade}_${who}_${formatNow()}`;}
 
