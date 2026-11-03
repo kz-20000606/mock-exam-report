@@ -1,3 +1,6 @@
 .workspace-controls{display:flex;align-items:center;gap:6px}.workspace-controls label{font-size:12px;color:#647588;font-weight:600}.workspace-controls select.field{min-height:34px;padding:5px 7px;font-size:12px}.saved-paper-host{max-width:1050px;margin:0 auto}.saved-paper-host .report-paper{height:auto;min-height:620px}.saved-paper-host .chart-pair{grid-template-columns:3fr 2fr}
 @media(max-width:900px){.workspace-controls{flex-wrap:wrap;justify-content:flex-end}.workspace-controls select.field{max-width:110px}}
 @media print{.workspace-controls{display:none!important}}
+.student-workspace-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;padding:12px 16px;background:#fff;border:1px solid #dce2e8;border-radius:4px}
+.student-workspace-bar label{font-size:13px;font-weight:700;color:#344659}
+.student-workspace-bar select{min-width:170px}
