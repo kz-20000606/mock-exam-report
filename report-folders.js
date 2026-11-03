@@ -79,15 +79,12 @@ saveSelectedReports = async function() {
     toast(`${people.length}名分の成績表セットを保存しました。保存済み成績表から閲覧できます。`);
   } catch(e) { toast('成績表セットを保存できませんでした：' + e.message, 'error'); }
 };
-printReports = async function() {
+printReports = function() {
   const people = reportSelection();
   if (!people.length) return toast('印刷対象の生徒がいません。', 'error');
-  if (!confirm(`${people.length}名分をA4横で一括印刷します。\nこの成績表セットもアプリ内に保存します。`)) return;
-  const folder = createReportFolder(people);
-  try {
-    await archivePutMany([folder]);
-    printPaperHTML(folder.papers.map(p=>p.html), filenameFor(people));
-  } catch(e) { toast('保存できなかったため印刷を中止しました：' + e.message, 'error'); }
+  if (!confirm(`${people.length}名分をA4横でPDF出力・印刷します。\nアプリ内の保存済み成績表には追加されません。`)) return;
+  // Printing must never write to IndexedDB. Saving is a separate explicit action.
+  printPaperHTML(people.map(person => paperMarkup(person)), filenameFor(people));
 };
 
 function folderListMarkup(folders) {
@@ -168,7 +165,14 @@ render = function() {
   priorRenderReportFolders();
   const btn = $('#appView .report-layout button');
   const saveButton = [...$$('#appView button')].find(x => x.textContent.includes('個別成績表をアプリ内に保存'));
-  if (route==='report' && saveButton) saveButton.textContent='成績表セットをアプリ内に保存';
+  if (route==='report') {
+    if (saveButton) saveButton.textContent='成績表セットをアプリ内に保存';
+    const printButton = $('#printButton');
+    if (printButton) {
+      printButton.textContent='PDF出力・印刷（アプリ内には保存しない）';
+      printButton.title='PDF保存または印刷のみ。保存済み成績表には追加しません。';
+    }
+  }
 };
 // When switching grades, use the new folder-specific state (even before archive reload).
 render();
