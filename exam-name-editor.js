@@ -46,6 +46,25 @@
   const previousRender=render;
   render=function(){
     const out=previousRender();
+    if(route==='report'){
+      const panel=document.querySelector('#appView .report-exam-filter');
+      if(panel&&!panel.querySelector('#renameReportExamSeries')){
+        const button=document.createElement('button');
+        button.id='renameReportExamSeries';button.type='button';button.className='btn small';
+        button.textContent='選択した模試名をまとめて修正';
+        button.style.marginTop='10px';
+        button.addEventListener('click',()=>{
+          const ids=[...document.querySelectorAll('#appView .report-exam-check:checked')].map(e=>e.dataset.examId);
+          if(!ids.length)return toast('名前を修正する模試を選択してください。','error');
+          const input=prompt(ids.length+'回分の模試に共通の正式名称を入力してください。第〇回の部分は各データから引き継ぎます。','');
+          if(input===null)return;
+          if(!confirm('選択した'+ids.length+'件の模試名を変更します。元の偏差値データは変更しません。続行しますか？'))return;
+          renameExams(ids,input);
+        });
+        panel.append(button);
+      }
+      return out;
+    }
     if(route!=='exams'||batchDrafts.length)return out;
     const table=document.querySelector('#appView .data-table');
     if(!table||table.dataset.renameReady==='1')return out;
