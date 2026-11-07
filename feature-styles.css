@@ -52,3 +52,14 @@
   .folder-table .folder-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:5px}
   .folder-table .folder-actions .btn{width:100%;white-space:normal;min-width:0;text-align:center}
 }
+
+/* Select included exam rounds on the report creation screen. */
+.report-exam-filter{margin:16px 0 12px;padding:12px;border:1px solid #dce2e8;border-radius:4px;background:#f9fbfd}
+.report-exam-filter>.controls{gap:6px}
+.report-exam-filter>.controls strong{font-size:13px}
+.report-exam-filter .controls{gap:5px}
+.report-exam-filter .report-exam-options{max-height:205px;overflow-y:auto;display:grid;gap:8px;margin-top:10px;padding-right:3px}
+.report-exam-option{display:flex;align-items:flex-start;gap:8px;font-size:12px;line-height:1.5;cursor:pointer;overflow-wrap:anywhere}
+.report-exam-option input{margin-top:3px;accent-color:#285b8d;flex-shrink:0}
+.report-exam-option small{color:#748391}
+.report-exam-filter .error{margin:10px 0 0}
