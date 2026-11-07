@@ -139,7 +139,7 @@ function bindFolderHandlers() {
   const search=$('#folderSearch');if(search)search.oninput=e=>{folderSearch=e.target.value;$('#folderListing').innerHTML=folderListMarkup(savedReportsView.filter(f=>norm(f.title).includes(norm(folderSearch))||f.papers.some(p=>norm(p.name).includes(norm(folderSearch)))));bindFolderHandlers()};
   $$('[data-open-folder]').forEach(el=>el.onclick=()=>{openReportFolderId=el.dataset.openFolder;openedReportStudentId=null;reportFolderChecked.clear();renderArchiveView()});
   $$('[data-print-folder]').forEach(el=>el.onclick=()=>{const f=savedReportsView.find(x=>x.id===el.dataset.printFolder);if(f)folderPrint(f,f.papers)});
-  $('[data-rename-folder]').forEach(el=>el.onclick=async()=>{
+  $$('[data-rename-folder]').forEach(el=>el.onclick=async()=>{
     const folder=savedReportsView.find(f=>f.id===el.dataset.renameFolder);
     if(!folder)return;
     const input=prompt('成績表セットの新しい名前を入力してください。',folder.title);
