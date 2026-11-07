@@ -72,6 +72,7 @@ switchWorkspace = function(id) {
 };
 
 saveSelectedReports = async function() {
+  if(!reportExamIds().size)return toast('掲載する模試を1つ以上選択してください。','error');
   const people = reportSelection();
   if (!people.length) return toast('保存する生徒を選択してください。', 'error');
   const folder = createReportFolder(people);
@@ -85,6 +86,7 @@ saveSelectedReports = async function() {
   } catch(e) { toast('成績表セットを保存・確認できませんでした：' + e.message, 'error'); }
 };
 printReports = function() {
+  if(!reportExamIds().size)return toast('掲載する模試を1つ以上選択してください。','error');
   const people = reportSelection();
   if (!people.length) return toast('印刷対象の生徒がいません。', 'error');
   if (!confirm(`${people.length}名分をA4横でPDF出力・印刷します。\nアプリ内の保存済み成績表には追加されません。`)) return;
