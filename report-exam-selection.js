@@ -25,7 +25,7 @@ render=function(){
   }));
   const rename=$('#renameReportExamSeries');
   if(rename)rename.addEventListener('click',()=>{
-    const ids=$('.report-exam-check').filter(el=>el.checked).map(el=>el.dataset.examId);
+    const ids=$$('.report-exam-check').filter(el=>el.checked).map(el=>el.dataset.examId);
     if(!ids.length)return toast('名前を変更する模試を選択してください。','error');
     const input=prompt(ids.length+'件の模試に共通する正式名称を入力してください。回数はそれぞれ維持します。','');
     if(input===null)return;
