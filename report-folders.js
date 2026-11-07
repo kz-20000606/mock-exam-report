@@ -32,6 +32,7 @@ function createReportFolder(people) {
 function groupedArchivedRecords(records) {
   const folders = [];
   const groupedOld = new Map();
+  const legacyTitles = new Map(records.filter(r=>r?.kind==='report-folder-title' && r.workspace===activeWorkspace).map(r=>[r.folderId,r.title]));
   for (const record of records) {
     if (record.workspace !== activeWorkspace) continue;
     if (isReportFolder(record)) {
@@ -50,7 +51,7 @@ function groupedArchivedRecords(records) {
     folders.push({
       id: `legacy-folder:${key}`, legacy: true, workspace: first.workspace,
       createdAt: first.createdAt || '', year, grade,
-      title: defaultFolderTitle(year, grade, first.createdAt),
+      title: legacyTitles.get(`legacy-folder:${key}`) || defaultFolderTitle(year, grade, first.createdAt),
       papers: records.map(r => ({id: r.id, studentId: r.studentId, name: r.name, html: r.html, title: r.title}))
     });
   }
@@ -88,7 +89,7 @@ printReports = function() {
 };
 
 function folderListMarkup(folders) {
-  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>成績表セット</th><th>作成日時</th><th class="numeric">人数</th><th>操作</th></tr></thead><tbody>${folders.map(f=>`<tr><td><button class="btn ghost" data-open-folder="${escapeHTML(f.id)}">▣ ${escapeHTML(f.title)}</button></td><td>${escapeHTML(folderDate(f.createdAt))}</td><td class="numeric">${f.papers.length}名</td><td><div class="controls"><button class="btn small" data-open-folder="${escapeHTML(f.id)}">開く</button><button class="btn small" data-print-folder="${escapeHTML(f.id)}">全員印刷</button><button class="btn small danger" data-delete-folder="${escapeHTML(f.id)}">削除</button></div></td></tr>`).join('')||'<tr><td colspan="4">保存済みの成績表セットはありません。</td></tr>'}</tbody></table></div>`;
+  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>成績表セット</th><th>作成日時</th><th class="numeric">人数</th><th>操作</th></tr></thead><tbody>${folders.map(f=>`<tr><td><button class="btn ghost" data-open-folder="${escapeHTML(f.id)}">▣ ${escapeHTML(f.title)}</button></td><td>${escapeHTML(folderDate(f.createdAt))}</td><td class="numeric">${f.papers.length}名</td><td><div class="controls"><button class="btn small" data-open-folder="${escapeHTML(f.id)}">開く</button><button class="btn small" data-rename-folder="${escapeHTML(f.id)}">名前を変更</button><button class="btn small" data-print-folder="${escapeHTML(f.id)}">全員印刷</button><button class="btn small danger" data-delete-folder="${escapeHTML(f.id)}">削除</button></div></td></tr>`).join('')||'<tr><td colspan="4">保存済みの成績表セットはありません。</td></tr>'}</tbody></table></div>`;
 }
 archiveMarkup = function() {
   const folders = savedReportsView.filter(f => norm(f.title).includes(norm(folderSearch)) || f.papers.some(p => norm(p.name).includes(norm(folderSearch))));
@@ -138,11 +139,30 @@ function bindFolderHandlers() {
   const search=$('#folderSearch');if(search)search.oninput=e=>{folderSearch=e.target.value;$('#folderListing').innerHTML=folderListMarkup(savedReportsView.filter(f=>norm(f.title).includes(norm(folderSearch))||f.papers.some(p=>norm(p.name).includes(norm(folderSearch)))));bindFolderHandlers()};
   $$('[data-open-folder]').forEach(el=>el.onclick=()=>{openReportFolderId=el.dataset.openFolder;openedReportStudentId=null;reportFolderChecked.clear();renderArchiveView()});
   $$('[data-print-folder]').forEach(el=>el.onclick=()=>{const f=savedReportsView.find(x=>x.id===el.dataset.printFolder);if(f)folderPrint(f,f.papers)});
-  $$('[data-delete-folder]').forEach(el=>el.onclick=async()=>{
+  $('[data-rename-folder]').forEach(el=>el.onclick=async()=>{
+    const folder=savedReportsView.find(f=>f.id===el.dataset.renameFolder);
+    if(!folder)return;
+    const input=prompt('成績表セットの新しい名前を入力してください。',folder.title);
+    if(input===null)return;
+    const title=input.trim();
+    if(!title)return toast('名前を入力してください。','error');
+    if(title.length>100)return toast('名前は100文字以内で入力してください。','error');
+    if(title===folder.title)return;
+    try {
+      if(folder.legacy){
+        await archivePutMany([{id:'folder-title:'+folder.id,kind:'report-folder-title',folderId:folder.id,workspace:folder.workspace,title}]);
+      }else{
+        await archivePutMany([{...folder,title}]);
+      }
+      await refreshArchive();
+      toast('成績表セットの名前を変更しました。');
+    }catch(e){toast('名前を変更できませんでした：'+e.message,'error')}
+  });
+  $('[data-delete-folder]').forEach(el=>el.onclick=async()=>{
     const f=savedReportsView.find(x=>x.id===el.dataset.deleteFolder);
     if(!f||!confirm(`「${f.title}」（${f.papers.length}名分）を削除しますか？\nこの操作は取り消せません。`))return;
     try{
-      if(f.legacy){for(const p of f.papers)await archiveRemove(p.id)}
+      if(f.legacy){for(const p of f.papers)await archiveRemove(p.id);await archiveRemove('folder-title:'+f.id)}
       else await archiveRemove(f.id);
       resetFolderView();await refreshArchive();
     }catch(e){toast('削除できませんでした：'+e.message,'error')}
