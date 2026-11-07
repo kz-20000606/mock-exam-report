@@ -67,7 +67,8 @@ function formatNow(){const d=new Date();return `${d.getFullYear()}${String(d.get
 function reportExamNameParts(students){
  const studentIds=new Set(students.map(s=>s.id));
  const usedExamIds=new Set(state.scores.filter(x=>studentIds.has(x.studentId)).map(x=>x.examId));
- const relevant=exams().filter(e=>usedExamIds.has(e.id));
+ const activeIds=reportExamIds();
+ const relevant=exams().filter(e=>usedExamIds.has(e.id)&&activeIds.has(e.id));
  const groups=new Map();
  for(const exam of relevant){
    const label=String(exam.name||'模試').normalize('NFKC').trim();
