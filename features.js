@@ -63,7 +63,38 @@ function refreshWorkspaceControls(){
  for(const id of ['workspaceYear','workspaceGrade'])$('#'+id).addEventListener('change',()=>switchWorkspace(wk($('#workspaceYear').value,$('#workspaceGrade').value)));
 }
 function formatNow(){const d=new Date();return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}_${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}${String(d.getSeconds()).padStart(2,'0')}`}
-function filenameFor(students){const safe=s=>String(s).replace(/[\\/:*?"<>|\x00-\x1f]/g,'_').replace(/\s+/g,'').slice(0,48);const [year,grade]=activeWorkspace.split(':');const who=students.length===1?safe(students[0].name):`${students.length}名`;return `模試成績表_${year}年度_${grade}_${who}_${formatNow()}`;}
+// Build default names from the exams actually represented in the selected reports.
+function reportExamNameParts(students){
+ const studentIds=new Set(students.map(s=>s.id));
+ const usedExamIds=new Set(state.scores.filter(x=>studentIds.has(x.studentId)).map(x=>x.examId));
+ const relevant=exams().filter(e=>usedExamIds.has(e.id));
+ const groups=new Map();
+ for(const exam of relevant){
+   const label=String(exam.name||'模試').normalize('NFKC').trim();
+   const roundInName=label.match(/第\s*(\d+)\s*回/);
+   const round=Number.isInteger(Number(exam.round))&&Number(exam.round)>0?Number(exam.round):(roundInName?Number(roundInName[1]):null);
+   // Importer includes the round in exam.name; remove it to avoid duplicate "第n回".
+   const base=label.replace(/第\s*\d+\s*回/g,'').replace(/[\s　()（）・_\-]+$/g,'').trim()||'模試';
+   if(!groups.has(base))groups.set(base,{rounds:new Set(),other:0});
+   if(round!==null)groups.get(base).rounds.add(round);
+   else groups.get(base).other++;
+ }
+ const roundText=nums=>{
+   const sorted=[...nums].sort((a,b)=>a-b);
+   if(!sorted.length)return '';
+   if(sorted.length===1)return '第'+sorted[0]+'回';
+   const consecutive=sorted.every((n,i)=>i===0||n===sorted[i-1]+1);
+   return consecutive?'第'+sorted[0]+'回〜第'+sorted.at(-1)+'回':sorted.map(n=>'第'+n+'回').join('・');
+ };
+ const parts=[...groups].map(([name,value])=>name+(value.rounds.size?'_'+roundText(value.rounds):''));
+ return parts.length?parts.join('_'):'模試未登録';
+}
+function reportDefaultBaseName(students){
+ const [year,grade]=activeWorkspace.split(':');
+ return [year+'年度',grade,reportExamNameParts(students)].join('_');
+}
+function safeReportFilename(s){return String(s).replace(/[\\/:*?"<>|\x00-\x1f]/g,'_').replace(/[. ]+$/g,'').slice(0,170)}
+function filenameFor(students){return safeReportFilename(reportDefaultBaseName(students))}
 
 function openReportDB(){if(archiveDbPromise)return archiveDbPromise;archiveDbPromise=new Promise((resolve,reject)=>{const req=indexedDB.open('mock-exam-report-archive',1);req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains('reports')){const store=db.createObjectStore('reports',{keyPath:'id'});store.createIndex('workspace','workspace',{unique:false});store.createIndex('createdAt','createdAt',{unique:false});}};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});return archiveDbPromise;}
 async function archiveAll(){const db=await openReportDB();return new Promise((resolve,reject)=>{const tx=db.transaction('reports','readonly');const req=tx.objectStore('reports').getAll();req.onsuccess=()=>resolve(req.result||[]);req.onerror=()=>reject(req.error)})}
