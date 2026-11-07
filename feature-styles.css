@@ -26,3 +26,29 @@
 .app-back-button{flex-shrink:0;padding:5px 11px;font-size:12px;background:#fff}
 .app-back-button[hidden]{display:none!important}
 @media print{.app-back-button{display:none!important}}
+
+/* Saved report folders: adapt to the WORKSPACE width, not merely the window.
+   A half-screen PWA still has a sidebar and must not need horizontal scrolling. */
+.folder-table-wrap{container-type:inline-size;overflow-x:visible}
+.folder-table{table-layout:fixed;white-space:normal}
+.folder-table th:nth-child(1){width:40%}
+.folder-table th:nth-child(2){width:19%}
+.folder-table th:nth-child(3){width:9%}
+.folder-table th:nth-child(4){width:32%}
+.folder-title-cell{overflow-wrap:anywhere;min-width:0}
+.folder-title-cell .btn{max-width:100%;white-space:normal;overflow-wrap:anywhere;text-align:left}
+.folder-actions{gap:5px;flex-wrap:wrap}
+.folder-actions .btn{white-space:nowrap;padding:6px 8px}
+@container (max-width:780px){
+  .folder-table,.folder-table tbody{display:block;width:100%}
+  .folder-table thead{display:none}
+  .folder-table tbody tr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;padding:14px 12px;border-bottom:1px solid #dce2e8}
+  .folder-table tbody td{display:block;padding:0;border:0;min-width:0}
+  .folder-table tbody tr:hover{background:#f8fafc}
+  .folder-table .folder-title-cell{grid-column:1/-1;font-weight:600}
+  .folder-table .folder-date-cell{grid-column:1}
+  .folder-table .folder-count-cell{grid-column:2;text-align:right}
+  .folder-table .folder-actions-cell{grid-column:1/-1}
+  .folder-table .folder-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:5px}
+  .folder-table .folder-actions .btn{width:100%;white-space:normal;min-width:0;text-align:center}
+}
