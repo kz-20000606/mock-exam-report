@@ -26,7 +26,7 @@ function createReportFolder(people) {
   return {
     id, kind: 'report-folder', workspace: activeWorkspace,
     createdAt: now, year: Number(year), grade,
-    title: defaultFolderTitle(year, grade, now), papers
+    title: reportDefaultBaseName(people), papers
   };
 }
 function groupedArchivedRecords(records) {
@@ -132,10 +132,10 @@ refreshArchive = async function() {
 };
 function folderPrint(folder,papers) {
   if (!papers.length) return toast('印刷する成績表が選択されていません。', 'error');
-  const safeName = s => String(s).replace(/[\\/:*?"<>|\x00-\x1f]/g,'_').replace(/\s+/g,'').slice(0,45);
-  const name = papers.length===1 ? safeName(papers[0].name) : `${papers.length}名`;
-  const basename = `保存済み成績表_${folder.year}年度_${folder.grade}_${name}_${String(folder.createdAt).replace(/[^0-9]/g,'').slice(0,14)}`;
-  printPaperHTML(papers.map(p=>p.html), basename);
+  // Preserve custom folder names in print filenames, and distinguish subsets.
+  const suffix=papers.length===1?'_'+papers[0].name:(papers.length===folder.papers.length?'':'_'+papers.length+'名');
+  const filename=safeReportFilename((folder.title||defaultFolderTitle(folder.year,folder.grade,folder.createdAt))+suffix);
+  printPaperHTML(papers.map(p=>p.html),filename);
 }
 function bindFolderHandlers() {
   const backList=$('#backToFolders');if(backList)backList.onclick=()=>{resetFolderView();renderArchiveView()};
