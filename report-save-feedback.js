@@ -77,13 +77,13 @@ function updateReportSaveUi(){
   save.id='reportSaveAction';
   const status=reportSaveState.status;
   save.disabled=reportSaveBusy||status==='success'||!reportSelection().length||!reportExamIds().size;
-  save.textContent=status==='saving'?'保存中…':status==='success'?'✓ 保存完了':status==='error'?'成績表セットをアプリ内に保存':'成績表セットをアプリ内に保存';
+  save.textContent=status==='saving'?((reportSaveState.folder?.papers.length||0)+'名分の成績表を保存中…'):status==='success'?'✓ 保存完了':status==='error'?'成績表セットをアプリ内に保存':'成績表セットをアプリ内に保存';
   let panel=$('#reportSaveStatus');
   if(!panel){panel=document.createElement('div');panel.id='reportSaveStatus';save.insertAdjacentElement('afterend',panel);}
   panel.innerHTML=reportSaveStatusMarkup();
   const open=$('#openJustSavedFolder');if(open)open.onclick=openJustSavedReportFolder;
   const retry=$('#retryReportSave');if(retry)retry.onclick=()=>saveSelectedReports(false,true);
-  const again=$('#resaveReportFolder');if(again)again.onclick=()=>saveSelectedReports(true,false);
+  const again=$('#resaveReportFolder');if(again)again.onclick=()=>{if(confirm('同じ内容の成績表セットを新しいセットとして保存しますか？'))saveSelectedReports(true,false)};
 }
 saveSelectedReports=async function(forceNew=false,retry=false){
   if(reportSaveBusy)return;
