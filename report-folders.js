@@ -158,7 +158,7 @@ function bindFolderHandlers() {
       toast('成績表セットの名前を変更しました。');
     }catch(e){toast('名前を変更できませんでした：'+e.message,'error')}
   });
-  $('[data-delete-folder]').forEach(el=>el.onclick=async()=>{
+  $$('[data-delete-folder]').forEach(el=>el.onclick=async()=>{
     const f=savedReportsView.find(x=>x.id===el.dataset.deleteFolder);
     if(!f||!confirm(`「${f.title}」（${f.papers.length}名分）を削除しますか？\nこの操作は取り消せません。`))return;
     try{
