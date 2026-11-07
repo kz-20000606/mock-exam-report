@@ -77,8 +77,12 @@ saveSelectedReports = async function() {
   const folder = createReportFolder(people);
   try {
     await archivePutMany([folder]);
+    // Do not report success until the saved set is readable from IndexedDB.
+    const found=(await archiveAll()).find(item=>item.id===folder.id);
+    if(!found || !isReportFolder(found) || found.papers.length!==people.length)
+      throw Error('保存後の読み取り確認に失敗しました。');
     toast(`${people.length}名分の成績表セットを保存しました。保存済み成績表から閲覧できます。`);
-  } catch(e) { toast('成績表セットを保存できませんでした：' + e.message, 'error'); }
+  } catch(e) { toast('成績表セットを保存・確認できませんでした：' + e.message, 'error'); }
 };
 printReports = function() {
   const people = reportSelection();
