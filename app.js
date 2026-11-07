@@ -121,6 +121,7 @@ function validateBatchDraft(d){
   d.people=previewRows(d.sheet.rows,d.mapping,d.headerRow);
   if(!d.people.length)return '生徒の成績が見つかりません。';
   if(!d.meta.name?.trim()||!/^\d{4}-\d{2}-\d{2}$/.test(d.meta.date))return '模試名と実施日を確認してください。';
+  if(d.meta.name.includes('模試名を確認してください'))return 'Excelから模試名を判別できません。詳細で正しい模試名を入力してください。';
   const names=new Set();
   for(const p of d.people){const key=norm(p.name);if(names.has(key))return '同じファイル内に同名の生徒がいます：'+p.name;names.add(key);}
   return '';
