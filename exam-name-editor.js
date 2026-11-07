@@ -43,6 +43,7 @@
     if(!confirm(ids.length+'件の名前を変更します。偏差値データには影響しません。続行しますか？'))return;
     renameExams(ids,name);
   }
+  window.renameImportedExamSeries = renameExams;
   const previousRender=render;
   render=function(){
     const out=previousRender();
