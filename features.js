@@ -65,10 +65,9 @@ function refreshWorkspaceControls(){
 function formatNow(){const d=new Date();return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}_${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}${String(d.getSeconds()).padStart(2,'0')}`}
 // Build default names from the exams actually represented in the selected reports.
 function reportExamNameParts(students){
- const studentIds=new Set(students.map(s=>s.id));
- const usedExamIds=new Set(state.scores.filter(x=>studentIds.has(x.studentId)).map(x=>x.examId));
  const activeIds=reportExamIds();
- const relevant=exams().filter(e=>usedExamIds.has(e.id)&&activeIds.has(e.id));
+ // The printed table contains every selected exam (even if one student was absent).
+ const relevant=exams().filter(e=>activeIds.has(e.id));
  const groups=new Map();
  for(const exam of relevant){
    const label=String(exam.name||'模試').normalize('NFKC').trim();
