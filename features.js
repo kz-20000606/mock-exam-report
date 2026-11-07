@@ -93,7 +93,7 @@ async function restoreAllWorkspaces(file){const data=JSON.parse(await file.text(
  if(data.version!==2||!data.workspaces||typeof data.workspaces!=='object'||!Array.isArray(data.reports))throw Error('バックアップ形式が不正です');for(const [id,v] of Object.entries(data.workspaces)){if(!/^\d{4}:(中[123]|未分類)$/.test(id)||!Array.isArray(v?.students)||!Array.isArray(v?.exams)||!Array.isArray(v?.scores))throw Error('年度・学年別のデータが不正です')}
  if(!confirm('バックアップ内の年度・学年データで現在の保存内容を置き換えます。続行しますか？'))return;
  // Put archived snapshots first, then replace all workspace records. Existing legacy v1 is not modified.
- await archiveClear();await archivePutMany(data.reports.filter(r=>r&&r.id&&(typeof r.html==='string'||(r.kind==='report-folder'&&Array.isArray(r.papers)&&r.papers.every(p=>p&&p.id&&typeof p.html==='string')))));
+ await archiveClear();await archivePutMany(data.reports.filter(r=>r&&r.id&&(typeof r.html==='string'||(r.kind==='report-folder-title'&&typeof r.folderId==='string'&&typeof r.title==='string')||(r.kind==='report-folder'&&Array.isArray(r.papers)&&r.papers.every(p=>p&&p.id&&typeof p.html==='string')))));
  for(const [id,v] of Object.entries(data.workspaces))safeWriteWorkspace(id,v);
  activeWorkspace=data.activeWorkspace in data.workspaces?data.activeWorkspace:Object.keys(data.workspaces)[0]||activeWorkspace;
  localStorage.setItem(ACTIVE_WORKSPACE_KEY,activeWorkspace);load();selected.clear();archiveCurrentId=null;goto('home');toast('バックアップを復元しました。')
