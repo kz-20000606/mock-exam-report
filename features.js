@@ -121,7 +121,7 @@ printReports=function(){const list=reportSelection();if(!list.length)return toas
 window.addEventListener('afterprint',()=>{if(window.__priorReportTitle!==undefined){document.title=window.__priorReportTitle;delete window.__priorReportTitle}});
 backup=async function(){try{save();const data={type:'mock-exam-report-backup',version:2,date:new Date().toISOString(),activeWorkspace,workspaces:Object.fromEntries(workspaceIds().map(id=>[id,JSON.parse(localStorage.getItem(storageKey(id))||'null')]).filter(([,v])=>v)),reports:await archiveAll()};download(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),`成績管理バックアップ_全学年_${formatNow()}.json`)}catch(e){toast('バックアップの作成に失敗しました：'+e.message,'error')}};
 async function restoreAllWorkspaces(file){const data=JSON.parse(await file.text());if(data.type!=='mock-exam-report-backup')throw Error('成績管理のバックアップではありません');if(data.version===1){if(!Array.isArray(data.data?.exams))throw Error('旧形式のデータが不正です');const b=data.data;const id=activeWorkspace;if(!confirm('旧形式のバックアップを現在の年度・学年に復元しますか？（現在のデータは置き換え）'))return;safeWriteWorkspace(id,b);load();selected.clear();goto('home');return}
- if(data.version!==2||!data.workspaces||typeof data.workspaces!=='object'||!Array.isArray(data.reports))throw Error('バックアップ形式が不正です');for(const [id,v] of Object.entries(data.workspaces)){if(!/^\d{4}:(中[123]|未分類)$/.test(id)||!Array.isArray(v?.students)||!Array.isArray(v?.exams)||!Array.isArray(v?.scores))throw Error('年度・学年別のデータが不正です')}
+ if(data.version!==2||!data.workspaces||typeof data.workspaces!=='object'||!Array.isArray(data.reports))throw Error('バックアップ形式が不正です');for(const [id,v] of Object.entries(data.workspaces)){if(!/^\d{4}:(中[123]|小[1-6]|未分類)$/.test(id)||!Array.isArray(v?.students)||!Array.isArray(v?.exams)||!Array.isArray(v?.scores))throw Error('年度・学年別のデータが不正です')}
  if(!confirm('バックアップ内の年度・学年データで現在の保存内容を置き換えます。続行しますか？'))return;
  // Put archived snapshots first, then replace all workspace records. Existing legacy v1 is not modified.
  await archiveClear();await archivePutMany(data.reports.filter(r=>r&&r.id&&(typeof r.html==='string'||(r.kind==='report-folder-title'&&typeof r.folderId==='string'&&typeof r.title==='string')||(r.kind==='report-folder'&&Array.isArray(r.papers)&&r.papers.every(p=>p&&p.id&&typeof p.html==='string')))));
@@ -186,7 +186,7 @@ commitBatchImport=function(){
       const problem=validateBatchDraft(d);
       if(problem)throw Error(`${d.file.name}：${problem}`);
       const grade=validGrade(d.meta.grade);
-      if(grade==='未分類')throw Error(`${d.file.name}：学年を判別できません。詳細画面で中1・中2・中3を指定してください。`);
+      if(grade==='未分類')throw Error(`${d.file.name}：学年を判別できません。詳細画面で正しい学年（小1〜小6・中1〜中3）を指定してください。`);
       const id=wk(yearOfDate(d.meta.date),grade),bundle=getStage(id),m=d.meta;
       if(bundle.exams.some(e=>e.name===m.name && e.date===m.date && validGrade(e.grade)===grade)){
         throw Error(`${d.file.name}：${id.replace(':','年度・')}に同じ模試が登録されています。`);
