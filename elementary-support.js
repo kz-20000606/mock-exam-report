@@ -53,10 +53,18 @@ guessMapping=function(rows,maxCols){
 };
 function elementaryScoresFromRow(row,mapping){
   const scores={};
-  for(const [k] of ELEMENTARY_FIELDS)if(k!=='total')scores[k]=mapping[k]>=0?num(row[mapping[k]]):null;
+  const from=(key)=>{
+    const idx=mapping[key];
+    if(idx==null||idx<0)return null;
+    const raw=row[idx];
+    if(raw==null||String(raw).trim()==='')return null;
+    return num(raw);
+  };
+  for(const [k] of ELEMENTARY_FIELDS)if(k!=='total')scores[k]=from(k);
+  scores.threeFour=from('threeFour');
+  scores.totalRaw=from('totalRaw');
   const count=['ja','ma','sc','so'].filter(k=>scores[k]!=null).length;
-  const from=(key)=>mapping[key]>=0?num(row[mapping[key]]):null;
-  scores.total=count===4?from('totalRaw'):count===3?from('threeFour'):count===2?from('two'):null;
+  scores.total=count===4?scores.totalRaw:count===3?scores.threeFour:count===2?scores.two:null;
   return scores;
 }
 const previousPreviewRows=previewRows;
