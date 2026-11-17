@@ -9,7 +9,7 @@ function elementaryGradeFromRows(rows){
   const m=header.match(/小\s*([1-6])/);
   return m?'小'+m[1]:'';
 }
-function fieldsForDraft(d){return isElementaryGrade(d?.meta?.grade)?ELEMENTARY_FIELDS:SUBJECTS;}
+function fieldsForDraft(d){return isElementaryGrade(d?.meta?.grade)?[['ja','国語'],['ma','算数'],['sc','理科'],['so','社会'],['two','2教科'],['three','3教科'],['threeFour','3・4教科'],['totalRaw','総合（4教科）']]:SUBJECTS;}
 const previousParseMeta=parseMeta;
 parseMeta=function(rows,filename){
   const meta=previousParseMeta(rows,filename);
