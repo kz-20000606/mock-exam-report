@@ -5,7 +5,7 @@ const ACTIVE_WORKSPACE_KEY='mock-exam-active-workspace-v2';
 const WORKSPACE_DATA_PREFIX='mock-exam-workspace-v2:';
 const DEFAULT_DATA=()=>({students:[],exams:[],scores:[],comments:{},settings:{commentMode:false}});
 const yearOfDate=(str)=>{const d=String(str||'').match(/^(\d{4})-(\d{2})/);return d?Number(d[1])-(Number(d[2])<=3?1:0):new Date().getFullYear()-(new Date().getMonth()<3?1:0)};
-const validGrade=(s)=>{const m=String(s||'').normalize('NFKC').match(/中\s*([123])/);return m?'中'+m[1]:'未分類'};
+const validGrade=(s)=>{const m=String(s||'').normalize('NFKC').match(/([小中])\s*([1-6])/);return m&&(m[1]==='小'||Number(m[2])<=3)?m[1]+m[2]:'未分類'};
 const wk=(y,g)=>`${Number(y)}:${g}`;
 const storageKey=(id)=>WORKSPACE_DATA_PREFIX+id;
 let activeWorkspace=localStorage.getItem(ACTIVE_WORKSPACE_KEY)||wk(yearOfDate(new Date().toISOString().slice(0,10)),'中2');
@@ -42,7 +42,7 @@ load();selected.clear();
 
 function switchWorkspace(id){
  if(batchDrafts.length){toast('Excelの読み込みを完了または中止してから学年を切り替えてください。','error');return;}
- if(!/^\d{4}:(中[123]|未分類)$/.test(id))return;
+ if(!/^\d{4}:(中[123]|小[1-6]|未分類)$/.test(id))return;
  if(id===activeWorkspace)return;
  if(!save())return;
  activeWorkspace=id;localStorage.setItem(ACTIVE_WORKSPACE_KEY,id);registerWorkspace(id);load();
@@ -51,7 +51,7 @@ function switchWorkspace(id){
  if(route==='detail')route='students';
  render();
 }
-function workspaceControls(){const [year,grade]=activeWorkspace.split(':');const years=new Set([Number(year),yearOfDate(new Date().toISOString().slice(0,10)),...workspaceIds().map(s=>Number(s.split(':')[0]))]);for(let y=Number(year)-1;y<=Number(year)+1;y++)years.add(y);return `<div class="workspace-controls"><label for="workspaceYear">年度</label><select id="workspaceYear" class="field">${[...years].sort((a,b)=>b-a).map(y=>`<option value="${y}" ${String(y)===year?'selected':''}>${y}年度</option>`).join('')}</select><label for="workspaceGrade">学年</label><select id="workspaceGrade" class="field">${['中1','中2','中3','未分類'].map(g=>`<option value="${g}" ${g===grade?'selected':''}>${g}</option>`).join('')}</select></div>`}
+function workspaceControls(){const [year,grade]=activeWorkspace.split(':');const years=new Set([Number(year),yearOfDate(new Date().toISOString().slice(0,10)),...workspaceIds().map(s=>Number(s.split(':')[0]))]);for(let y=Number(year)-1;y<=Number(year)+1;y++)years.add(y);return `<div class="workspace-controls"><label for="workspaceYear">年度</label><select id="workspaceYear" class="field">${[...years].sort((a,b)=>b-a).map(y=>`<option value="${y}" ${String(y)===year?'selected':''}>${y}年度</option>`).join('')}</select><label for="workspaceGrade">学年</label><select id="workspaceGrade" class="field">${['小1','小2','小3','小4','小5','小6','中1','中2','中3','未分類'].map(g=>`<option value="${g}" ${g===grade?'selected':''}>${g}</option>`).join('')}</select></div>`}
 function refreshWorkspaceControls(){
  const old=$('#workspaceControlHost');if(old)old.remove();
  $('#currentYear').textContent='';
