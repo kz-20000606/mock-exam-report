@@ -13,7 +13,7 @@
   if (!preferences.archive) preferences.archive = activeWorkspace;
   if (!preferences.exams) preferences.exams = activeWorkspace;
   const persist = () => { try { localStorage.setItem(PREF_KEY, JSON.stringify(preferences)); } catch (_) {} };
-  const valid = id => /^\d{4}:(中[123]|未分類)$/.test(id || '');
+  const valid = id => /^\d{4}:(中[123]|小[1-6]|未分類)$/.test(id || '');
   const priorSwitch = switchWorkspace;
   switchWorkspace = function(id) {
     const scope = scopeForRoute(route);
