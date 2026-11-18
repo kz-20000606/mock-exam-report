@@ -122,3 +122,42 @@
  #printRoot .score-dual-table .score-deviation-heading,#printRoot .score-dual-table .score-points-heading{font-size:6.7pt!important}
  #printRoot .score-dual-table .score-deviation-value,#printRoot .score-dual-table .score-points-value{print-color-adjust:exact!important;-webkit-print-color-adjust:exact!important}
 }
+
+/* v30: stronger visible distinction between 偏差値 (blue) and 点数 (orange).
+   Target both print and live table cells with increased specificity. */
+#appView .score-dual-table th.score-deviation-heading,
+#appView .score-dual-table td.score-deviation-value,
+#printRoot .score-dual-table th.score-deviation-heading,
+#printRoot .score-dual-table td.score-deviation-value{
+ background-color:#d9eafa!important;color:#164f80!important;
+}
+#appView .score-dual-table th.score-points-heading,
+#appView .score-dual-table td.score-points-value,
+#printRoot .score-dual-table th.score-points-heading,
+#printRoot .score-dual-table td.score-points-value{
+ background-color:#ffe4c5!important;color:#954813!important;
+}
+#appView .score-dual-table td.score-deviation-value,
+#appView .score-dual-table td.score-points-value,
+#printRoot .score-dual-table td.score-deviation-value,
+#printRoot .score-dual-table td.score-points-value{
+ font-weight:700!important;font-variant-numeric:tabular-nums;
+}
+#appView .score-dual-table th.score-deviation-heading,
+#appView .score-dual-table th.score-points-heading,
+#printRoot .score-dual-table th.score-deviation-heading,
+#printRoot .score-dual-table th.score-points-heading{
+ font-weight:800!important;
+}
+#appView .score-dual-table th,#appView .score-dual-table td,
+#printRoot .score-dual-table th,#printRoot .score-dual-table td{
+ -webkit-print-color-adjust:exact;print-color-adjust:exact;
+}
+.missing-points-hint{
+ border:1px solid #e8cc9d;background:#fff7e9;color:#664314;
+ border-radius:4px;padding:11px 14px;margin-bottom:14px;
+ font-size:12px;line-height:1.65;display:flex;align-items:center;
+ justify-content:space-between;gap:12px;flex-wrap:wrap;
+}
+.missing-points-hint .btn{flex-shrink:0}
+@media print{#missingPointsHint{display:none!important}}
