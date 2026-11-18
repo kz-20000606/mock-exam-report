@@ -247,6 +247,8 @@
  }
  const oldRender=render;
  render=function(){const result=oldRender();if(route==='report')enhanceReport();if(route==='archive')enhanceArchive();return result;};
+ const oldFolderBindings=bindFolderHandlers;
+ bindFolderHandlers=function(){const output=oldFolderBindings();enhanceArchive();return output;};
  const oldArchiveRender=renderArchiveView;
  renderArchiveView=function(){const result=oldArchiveRender();enhanceArchive();return result;};
  render();
