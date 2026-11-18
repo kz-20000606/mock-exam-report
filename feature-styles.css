@@ -73,3 +73,13 @@
 .report-save-actions{margin-top:10px;gap:6px}
 .report-save-actions .btn{max-width:100%;white-space:normal;text-align:center}
 @media print{#reportSaveStatus{display:none!important}}
+
+/* Local PDF export: status and action buttons beside existing print controls. */
+.pdf-status-host{margin-top:8px;min-width:0}
+.pdf-status{border:1px solid #ccd9e4;background:#f5f8fc;color:#314b62;border-radius:4px;padding:10px 12px;margin:8px 0;font-size:12px;line-height:1.55;overflow-wrap:anywhere}
+.pdf-status progress{display:block;width:100%;height:12px;margin-top:6px;accent-color:#275f8e}
+.pdf-success{border-color:#b9d9c5;background:#f0f8f3;color:#24553a}
+.pdf-error{border-color:#e4c3c1;background:#fff4f2;color:#9a3c38}
+#directPdfReport{width:100%;margin-top:10px}
+#directPdfAll,#directPdfSelected,#directPdfPerson{margin:4px 0}
+@media print{.pdf-status-host,[data-direct-pdf]{display:none!important}}
