@@ -102,3 +102,23 @@
  #printRoot .score-dual-table th,#printRoot .score-dual-table td{padding:1mm!important}
  #printRoot .score-deviation,#printRoot .score-points{font-size:7pt!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}
 }
+
+/* v29: two explicit columns under each subject (rather than abbreviated inline labels). */
+.score-dual-table{border-collapse:collapse;table-layout:fixed;width:100%}
+.score-dual-table .score-subject-heading{background:#e7eef5!important;color:#30465c!important;text-align:center;font-weight:700}
+.score-dual-table .score-deviation-heading{background:#dcecf8!important;color:#205783!important;font-weight:700;white-space:nowrap}
+.score-dual-table .score-points-heading{background:#ffebd5!important;color:#965015!important;font-weight:700;white-space:nowrap}
+.score-dual-table .score-deviation-value{background:#edf5fb!important;color:#205783!important;font-weight:700;text-align:center;font-variant-numeric:tabular-nums;white-space:nowrap}
+.score-dual-table .score-points-value{background:#fff3e7!important;color:#a45b19!important;font-weight:650;text-align:center;font-variant-numeric:tabular-nums;white-space:nowrap}
+.score-dual-table .score-meta-cell{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.report-paper .score-dual-table{font-size:8px!important}
+.report-paper .score-dual-table th,.report-paper .score-dual-table td{padding:3px 2px!important;min-width:0!important}
+.report-paper .score-dual-table .score-deviation-heading,.report-paper .score-dual-table .score-points-heading{font-size:7.5px}
+.table-wrap:has(.score-dual-table){overflow-x:auto}
+.data-table.score-dual-table{min-width:810px}
+@media print{
+ #printRoot .score-dual-table{font-size:6.7pt!important}
+ #printRoot .score-dual-table th,#printRoot .score-dual-table td{padding:.8mm .6mm!important}
+ #printRoot .score-dual-table .score-deviation-heading,#printRoot .score-dual-table .score-points-heading{font-size:6.7pt!important}
+ #printRoot .score-dual-table .score-deviation-value,#printRoot .score-dual-table .score-points-value{print-color-adjust:exact!important;-webkit-print-color-adjust:exact!important}
+}
