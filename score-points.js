@@ -165,4 +165,45 @@
    }catch(e){toast('得点の補完を中止しました：'+e.message,'error');}
  };
 
+
+ // Existing workspaces imported before points were supported contain deviations only.
+ // Show a deliberate, non-destructive action rather than pretending missing points are zero.
+ function missingPointRecords(studentIds){
+   const ids=new Set(studentIds);
+   const filtered=state.scores.filter(s=>ids.has(s.studentId));
+   return filtered.filter(s=>SUBJECTS.some(([k])=>s[k]!=null)||(typeof ELEMENTARY_FIELDS!=='undefined'&&ELEMENTARY_FIELDS.some(([k])=>s[k]!=null)))
+     .filter(s=>!s.points||!Object.values(s.points).some(v=>v!=null)).length;
+ }
+ function addPointsRecoveryHint(){
+   if(route!=='detail'&&route!=='report')return;
+   if(document.getElementById('missingPointsHint'))return;
+   let students=[];
+   if(route==='detail'){
+     if(currentStudent)students=[currentStudent];
+   }else{
+     students=reportSelection().map(s=>s.id);
+   }
+   const missing=missingPointRecords(students);
+   if(!missing)return;
+   const view=document.getElementById('appView');
+   if(!view)return;
+   const box=document.createElement('div');
+   box.id='missingPointsHint';box.className='missing-points-hint';
+   const intro=document.createElement('div');
+   intro.textContent='点数が未登録の模試が'+missing+'件あります。旧バージョンで登録した模試の点数は、元のExcelを再度読み込むと補完できます。既存の偏差値やグラフは変更しません。';
+   const btn=document.createElement('button');
+   btn.className='btn small';btn.type='button';btn.textContent='元のExcelから点数を補完';
+   btn.addEventListener('click',()=>document.getElementById('excelInput')?.click());
+   box.append(intro,btn);
+   const before=view.querySelector('.report-layout,.summary-grid');
+   if(before)before.insertAdjacentElement('beforebegin',box);
+   else view.prepend(box);
+ }
+ const beforePointNoticeRender=render;
+ render=function(){
+   const result=beforePointNoticeRender();
+   addPointsRecoveryHint();
+   return result;
+ };
+
 })();
