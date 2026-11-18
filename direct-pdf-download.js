@@ -5,55 +5,133 @@
  const W=1122,H=794,SCALE=2.1,MW=841.89,MH=595.28;
  let busy=false,progress={mode:'idle',done:0,total:0,error:'',scope:''};
  const utf8=s=>new TextEncoder().encode(s);
- function pageCSS(){
-  let css='';
-  for(const sheet of document.styleSheets){
-   try{if(sheet.href&&new URL(sheet.href,location.href).origin!==location.origin)continue;
-    for(const rule of sheet.cssRules)css+=rule.cssText+'\n';}catch(_){}
-  }
-  return css+[
-  '*,*:before,*:after{box-sizing:border-box!important}',
-  '.report-paper{width:1122px!important;height:794px!important;min-width:0!important;max-width:1122px!important;aspect-ratio:auto!important;box-shadow:none!important;border:0!important;padding:24px 27px!important;gap:10px!important;overflow:hidden!important;display:flex!important;flex-direction:column!important;background:white!important;color:#1f2933!important;font-family:"Yu Gothic","Meiryo","Hiragino Kaku Gothic ProN",sans-serif!important}',
-  '.paper-head h2{font-size:24px!important}.paper-head p{font-size:13px!important}.paper-kpi{font-size:14px!important}.paper-kpi strong{font-size:22px!important}',
-  '.report-paper .chart-pair{display:grid!important;grid-template-columns:3fr 2fr!important;gap:22px!important}',
-  '.report-paper .chart-box{padding:0!important;border:0!important;background:white!important}',
-  '.report-paper .chart-box h3{font-size:14px!important;margin:0 0 4px!important}',
-  '.report-paper .chart-box > svg{height:225px!important;max-height:225px!important;width:100%!important}',
-  '.report-paper .paper-table{font-size:12px!important}',
-  '.report-paper .paper-table th,.report-paper .paper-table td{padding:6px 8px!important}',
-  '.paper-comment{font-size:12px!important;min-height:48px!important}',
-  '.report-paper .footer-note{font-size:11px!important}'
-  ].join('\n');
+ function font(ctx,size,bold=false){
+  ctx.font=(bold?'700 ':'')+size+'px "Yu Gothic","Meiryo","Hiragino Kaku Gothic ProN",sans-serif';
  }
- function htmlSVG(html,css){
-  const temp=document.createElement('template');temp.innerHTML=html;
-  const paper=temp.content.querySelector('.report-paper');
-  if(!paper)throw Error('成績表のデータを読み取れません。');
-  const wrap=document.createElementNS('http://www.w3.org/1999/xhtml','div');
-  wrap.setAttribute('style','width:1122px;height:794px;overflow:hidden;background:white');
-  wrap.appendChild(paper.cloneNode(true));
-  const content=new XMLSerializer().serializeToString(wrap);
-  const style='<style xmlns="http://www.w3.org/1999/xhtml">'+css.replace(/<\/style/gi,'<\\/style')+'</style>';
-  return '<svg xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="'+H+'"><foreignObject width="'+W+'" height="'+H+'"><div xmlns="http://www.w3.org/1999/xhtml">'+style+content+'</div></foreignObject></svg>';
+ function clippedText(ctx,value,x,y,maxWidth,align='left'){
+  const original=String(value??'');
+  let str=original;
+  while(str.length&&ctx.measureText(str).width>maxWidth)str=str.slice(0,-1);
+  if(str!==original)str=str.slice(0,-1)+'…';
+  ctx.textAlign=align;ctx.fillText(str,x,y);
+ }
+ function line(ctx,x1,y1,x2,y2,color='#d9e1e8',width=1){
+  ctx.strokeStyle=color;ctx.lineWidth=width;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+ }
+ async function svgOnCanvas(ctx,svg,x,y,w,h){
+  if(!svg)return;
+  const xml=new XMLSerializer().serializeToString(svg);
+  const uri=URL.createObjectURL(new Blob([xml],{type:'image/svg+xml;charset=utf-8'}));
+  try{
+   const img=await imageFrom(uri);
+   const view=svg.viewBox?.baseVal;
+   const ratio=view?.width&&view?.height?view.width/view.height:2.4;
+   const height=Math.min(h,w/ratio),width=height*ratio;
+   ctx.drawImage(img,x+(w-width)/2,y,width,height);
+  }finally{URL.revokeObjectURL(uri);}
  }
  function imageFrom(url){
   return new Promise((resolve,reject)=>{
    const img=new Image();img.onload=()=>resolve(img);
-   img.onerror=()=>reject(Error('成績表を画像化できませんでした。'));img.src=url;
+   img.onerror=()=>reject(Error('偏差値グラフを画像化できませんでした。'));
+   img.src=url;
   });
  }
- async function jpegPage(html,css){
-  const url=URL.createObjectURL(new Blob([htmlSVG(html,css)],{type:'image/svg+xml'}));
-  let img;
-  try{img=await imageFrom(url);}finally{URL.revokeObjectURL(url);}
+ function drawTable(ctx,table,y,endY){
+  if(!table)return y;
+  const headers=[...table.querySelectorAll('thead th')].map(x=>x.textContent.trim());
+  const rows=[...table.querySelectorAll('tbody tr')].map(row=>[...row.querySelectorAll('td')].map(c=>c.textContent.trim()));
+  if(!headers.length)return y;
+  const x=30,w=W-60;
+  const fixed=headers.length>=3?[108,Math.min(245,Math.max(175,w*.25))]:[];
+  const flexible=w-fixed.reduce((a,b)=>a+b,0);
+  const widths=headers.map((_,i)=>i<fixed.length?fixed[i]:flexible/(headers.length-fixed.length));
+  const headerHeight=26,rowHeight=Math.min(27,Math.max(6,(endY-y-headerHeight)/Math.max(1,rows.length)));
+  const txtSize=Math.min(13,Math.max(7,rowHeight*.66));
+  ctx.fillStyle='#edf2f6';ctx.fillRect(x,y,w,headerHeight);
+  line(ctx,x,y,x+w,y);line(ctx,x,y+headerHeight,x+w,y+headerHeight);
+  let cx=x;
+  for(let i=0;i<headers.length;i++){
+   font(ctx,Math.max(9,txtSize),true);ctx.fillStyle='#30465c';
+   clippedText(ctx,headers[i],cx+widths[i]/2,y+headerHeight/2+4,widths[i]-8,'center');
+   line(ctx,cx,y,cx,y+headerHeight+rows.length*rowHeight);
+   cx+=widths[i];
+  }
+  line(ctx,x+w,y,x+w,y+headerHeight+rows.length*rowHeight);
+  rows.forEach((cells,index)=>{
+   const ry=y+headerHeight+index*rowHeight;
+   if(index%2===1){ctx.fillStyle='#f9fbfc';ctx.fillRect(x,ry,w,rowHeight)}
+   font(ctx,txtSize);ctx.fillStyle='#293949';
+   let tx=x;
+   cells.slice(0,headers.length).forEach((val,i)=>{
+    clippedText(ctx,val,tx+widths[i]/2,ry+rowHeight/2+txtSize*.34,widths[i]-7,'center');tx+=widths[i];
+   });
+   line(ctx,x,ry+rowHeight,x+w,ry+rowHeight);
+  });
+  return y+headerHeight+rows.length*rowHeight;
+ }
+ function wrapText(ctx,value,width){
+  const lines=[];
+  for(const raw of String(value??'').split('\n')){
+   let lineText='';
+   for(const char of raw){
+    if(ctx.measureText(lineText+char).width>width&&lineText){lines.push(lineText);lineText='';}
+    lineText+=char;
+   }
+   lines.push(lineText);
+  }
+  return lines;
+ }
+ async function jpegPage(html){
+  const template=document.createElement('template');template.innerHTML=html;
+  const report=template.content.querySelector('.report-paper');
+  if(!report)throw Error('成績表の内容を読み取れませんでした。');
   const canvas=document.createElement('canvas');
   canvas.width=Math.round(W*SCALE);canvas.height=Math.round(H*SCALE);
-  const ctx=canvas.getContext('2d',{alpha:false});if(!ctx)throw Error('画像の描画領域を確保できません。');
-  ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
-  ctx.drawImage(img,0,0,canvas.width,canvas.height);
-  const data=canvas.toDataURL('image/jpeg',0.94).split(',')[1];
-  const binary=atob(data),bytes=new Uint8Array(binary.length);
-  for(let j=0;j<binary.length;j++)bytes[j]=binary.charCodeAt(j);
+  const ctx=canvas.getContext('2d',{alpha:false});
+  if(!ctx)throw Error('PDFの画像領域を確保できません。');
+  ctx.setTransform(SCALE,0,0,SCALE,0,0);
+  ctx.fillStyle='white';ctx.fillRect(0,0,W,H);
+  const title=report.querySelector('.paper-head h2')?.textContent||'模試個人成績表';
+  const detail=report.querySelector('.paper-head p')?.textContent||'';
+  font(ctx,23,true);ctx.fillStyle='#1f2933';clippedText(ctx,title,30,61,620);
+  font(ctx,12);ctx.fillStyle='#617286';clippedText(ctx,detail,30,88,720);
+  const kpi=[...report.querySelectorAll('.paper-kpi span')];
+  for(let i=0;i<Math.min(2,kpi.length);i++){
+   const block=kpi[i],num=block.querySelector('strong')?.textContent||'—';
+   const label=block.textContent.replace(num,'').trim();
+   const px=815+i*140;
+   font(ctx,12);ctx.fillStyle='#607082';clippedText(ctx,label,px,41,135);
+   font(ctx,22,true);ctx.fillStyle='#263e56';clippedText(ctx,num,px,72,135);
+  }
+  line(ctx,30,110,W-30,110,'#264665',2);
+  const charts=[...report.querySelectorAll('.chart-box')].slice(0,2);
+  const chartX=[30,700],chartWidth=[642,392];
+  for(let i=0;i<charts.length;i++){
+   const c=charts[i],x=chartX[i],width=chartWidth[i];
+   font(ctx,14,true);ctx.fillStyle='#293949';
+   clippedText(ctx,c.querySelector('h3')?.textContent||'',x,143,width);
+   await svgOnCanvas(ctx,c.querySelector('svg'),x,158,width,225);
+  }
+  const table=report.querySelector('table');
+  const comment=report.querySelector('.paper-comment');
+  const footer=report.querySelector('.footer-note')?.textContent||'';
+  const tableStart=427,tableBottom=comment?670:725;
+  font(ctx,14,true);ctx.fillStyle='#293949';ctx.fillText('偏差値一覧',30,414);
+  const bottom=drawTable(ctx,table,tableStart,tableBottom);
+  if(comment){
+   const top=Math.max(bottom+12,680);
+   ctx.fillStyle='#fff';ctx.fillRect(30,top,W-60,Math.max(0,747-top));
+   ctx.strokeStyle='#dce2e8';ctx.strokeRect(30,top,W-60,Math.max(0,747-top));
+   font(ctx,12,true);ctx.fillStyle='#263e56';ctx.fillText('講師コメント',40,top+17);
+   const value=comment.textContent.replace(/^\s*講師コメント\s*/,'').trim();
+   font(ctx,11);ctx.fillStyle='#293949';
+   wrapText(ctx,value,W-94).slice(0,3).forEach((l,i)=>clippedText(ctx,l,40,top+34+i*14,W-94));
+  }
+  font(ctx,10);ctx.fillStyle='#71818f';clippedText(ctx,footer,W-30,H-18,W-60,'right');
+  const base64=canvas.toDataURL('image/jpeg',0.94).split(',')[1];
+  const raw=atob(base64),bytes=new Uint8Array(raw.length);
+  for(let j=0;j<raw.length;j++)bytes[j]=raw.charCodeAt(j);
   canvas.width=0;canvas.height=0;
   return {data:bytes,width:Math.round(W*SCALE),height:Math.round(H*SCALE)};
  }
@@ -99,9 +177,9 @@
   busy=true;progress={mode:'working',done:0,total:papers.length,error:'',scope};update();
   try{
    await new Promise(resolve=>requestAnimationFrame(resolve));
-   const css=pageCSS(),images=[];
+   const images=[];
    for(const [index,html] of papers.entries()){
-    images.push(await jpegPage(html,css));
+    images.push(await jpegPage(html));
     progress.done=index+1;update();
     await new Promise(resolve=>setTimeout(resolve,0));
    }
