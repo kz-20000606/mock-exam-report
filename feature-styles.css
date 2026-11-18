@@ -83,3 +83,22 @@
 #directPdfReport{width:100%;margin-top:10px}
 #directPdfAll,#directPdfSelected,#directPdfPerson{margin:4px 0}
 @media print{.pdf-status-host,[data-direct-pdf]{display:none!important}}
+
+/* Score pairs: deviation values in navy blue, raw exam points in warm orange.
+ * Keep labels visible so grayscale prints remain distinguishable. */
+.score-dual-table{table-layout:fixed;width:100%}
+.score-dual-table .score-pair-cell{padding:3px 4px!important;text-align:center;vertical-align:middle}
+.score-dual-table th:nth-child(n+3){min-width:0}
+.score-deviation,.score-points{display:block;white-space:nowrap;line-height:1.28;font-variant-numeric:tabular-nums;font-weight:650}
+.score-deviation{color:#205783;background:#edf5fb}
+.score-points{color:#a45b19;background:#fff3e7}
+.score-kind{font-size:.78em;font-weight:700;letter-spacing:.02em}
+.report-paper .score-dual-table{font-size:9px!important}
+.report-paper .score-dual-table th,.report-paper .score-dual-table td{padding:3px 3px!important;overflow:hidden}
+.report-paper .score-deviation,.report-paper .score-points{font-size:9px}
+.data-table.score-dual-table .score-pair-cell{min-width:58px}
+@media print{
+ #printRoot .score-dual-table{font-size:7pt!important}
+ #printRoot .score-dual-table th,#printRoot .score-dual-table td{padding:1mm!important}
+ #printRoot .score-deviation,#printRoot .score-points{font-size:7pt!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+}
