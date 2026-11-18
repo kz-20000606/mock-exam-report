@@ -87,4 +87,86 @@
    const rows=scoresOf(stu.id);
    return updateHeading(replaceTable(html,'data-table',pairedTable(rows,isElementaryGrade(stu.grade),'data-table','name')));
  };
+ // Non-destructive raw-score backfill for files previously imported without points.
+ // Require a unique exam match and consistent student deviation scores.
+ const oldCommitBatchImport=commitBatchImport;
+ commitBatchImport=function(){
+   const drafts=batchDrafts.filter(d=>d.selected);
+   if(!drafts.length)return oldCommitBatchImport();
+   const plans=[],unmatched=[];
+   for(const d of drafts){
+     if(d.problem)return oldCommitBatchImport();
+     const grade=validGrade(d.meta.grade),id=wk(yearOfDate(d.meta.date),grade);
+     const raw=localStorage.getItem(storageKey(id));
+     if(!raw){unmatched.push(d);continue;}
+     let bundle;
+     try{bundle=JSON.parse(raw);}catch(e){toast('既存データを読み込めません。','error');return;}
+     if(!Array.isArray(bundle?.exams)||!Array.isArray(bundle?.scores)||!Array.isArray(bundle?.students)){
+       toast('既存の成績データが不正です。','error');return;
+     }
+     let candidates=bundle.exams.filter(e=>e.date===d.meta.date&&validGrade(e.grade)===grade);
+     const exact=candidates.filter(e=>norm(e.name)===norm(d.meta.name));
+     if(exact.length===1)candidates=exact;
+     else if(d.meta.round!=null){
+       const byRound=candidates.filter(e=>Number(e.round)===Number(d.meta.round));
+       if(byRound.length===1)candidates=byRound;
+     }
+     if(candidates.length>1){
+       toast('同じ実施日の模試が複数あります。模試名と回数を確認してください：'+d.file.name,'error');return;
+     }
+     if(!candidates.length){unmatched.push(d);continue;}
+     plans.push({d,id,bundle,exam:candidates[0]});
+   }
+   if(!plans.length)return oldCommitBatchImport();
+   if(unmatched.length){
+     toast('新規模試と得点補完のファイルは、分けて登録してください。','error');return;
+   }
+   let count=0,added=0;
+   const staged=new Map(),updatedFiles=new Set();
+   try{
+     for(const plan of plans){
+       let b=staged.get(plan.id);
+       if(!b){
+         b=plan.bundle;
+         staged.set(plan.id,b);
+       }
+       const exam=b.exams.find(e=>e.id===plan.exam.id);
+       if(!exam)throw Error('照合先の模試を特定できません。');
+       const scoreByStudent=new Map(b.scores.filter(x=>x.examId===exam.id).map(x=>[x.studentId,x]));
+       let matched=0;
+       for(const p of plan.d.people){
+         const students=b.students.filter(x=>norm(x.name)===norm(p.name));
+         if(students.length!==1)throw Error('生徒の氏名を一意に照合できません：'+p.name);
+         const target=scoreByStudent.get(students[0].id);
+         if(!target)throw Error('登録済みの偏差値がありません：'+p.name);
+         // Protect against a wrong workbook or an accidentally identical exam date.
+         const shared=['ja','ma','en','sc','so','total','two','three'].filter(k=>target[k]!=null&&p.scores[k]!=null);
+         if(shared.some(k=>Math.abs(Number(target[k])-Number(p.scores[k]))>0.15))
+           throw Error('偏差値が一致しないため更新を中止しました：'+p.name);
+         if(!shared.length)throw Error('偏差値の照合ができません：'+p.name);
+         const points=p.scores.points||{};
+         const values=Object.entries(points).filter(([k,v])=>v!=null);
+         if(!values.length)continue;
+         target.points={...(target.points||{}),...Object.fromEntries(values)};
+         matched++;
+       }
+       if(!matched)throw Error('得点を補完できる生徒がいません：'+plan.d.file.name);
+       count+=matched;added++;
+       updatedFiles.add(plan.d.file.name);
+     }
+     if(!confirm('登録済み模試'+added+'件・'+count+'名分の得点だけを補完します。\n既存の偏差値・模試名・生徒ID・コメントは変更しません。続行しますか？'))return;
+     const original=new Map([...staged.keys()].map(id=>[id,localStorage.getItem(storageKey(id))]));
+     const oldMeta=localStorage.getItem(WORKSPACES_META_KEY);
+     try{
+       for(const [id,bundle] of staged)safeWriteWorkspace(id,bundle);
+     }catch(e){
+       for(const [id,old] of original)try{if(old==null)localStorage.removeItem(storageKey(id));else localStorage.setItem(storageKey(id),old);}catch(_){}
+       if(oldMeta!==null)try{localStorage.setItem(WORKSPACES_META_KEY,oldMeta)}catch(_){}
+       throw Error('得点の保存に失敗しました。バックアップを確認してください。');
+     }
+     load();batchDrafts=[];selected.clear();goto('exams');
+     toast('登録済み模試'+added+'件・'+count+'名分に得点を補完しました。');
+   }catch(e){toast('得点の補完を中止しました：'+e.message,'error');}
+ };
+
 })();
