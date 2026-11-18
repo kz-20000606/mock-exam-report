@@ -3,7 +3,7 @@
    No remote PDF service or additional libraries, no change to printing or IndexedDB. */
 (() => {
  const W=1122,H=794,SCALE=2.1,MW=841.89,MH=595.28;
- let busy=false,progress={mode:'idle',done:0,total:0,error:'',scope:''};
+ let busy=false,progress={mode:'idle',done:0,total:0,error:'',scope:''},lastJob=null;
  const utf8=s=>new TextEncoder().encode(s);
  function font(ctx,size,bold=false){
   ctx.font=(bold?'700 ':'')+size+'px "Yu Gothic","Meiryo","Hiragino Kaku Gothic ProN",sans-serif';
@@ -120,6 +120,7 @@
   font(ctx,14,true);ctx.fillStyle='#293949';ctx.fillText('偏差値一覧',30,414);
   const bottom=drawTable(ctx,table,tableStart,tableBottom);
   if(comment){
+   ctx.textAlign='left';
    const top=Math.max(bottom+12,680);
    ctx.fillStyle='#fff';ctx.fillRect(30,top,W-60,Math.max(0,747-top));
    ctx.strokeStyle='#dce2e8';ctx.strokeRect(30,top,W-60,Math.max(0,747-top));
@@ -163,18 +164,18 @@
  function status(){
   if(progress.mode==='working')return '<div class="pdf-status pdf-working" role="status">PDFを生成中… '+progress.done+' / '+progress.total+'ページ<progress value="'+progress.done+'" max="'+progress.total+'"></progress></div>';
   if(progress.mode==='success')return '<div class="pdf-status pdf-success" role="status">✓ PDFの生成が完了し、ダウンロードを開始しました。保存先をご確認ください。</div>';
-  if(progress.mode==='error')return '<div class="pdf-status pdf-error" role="alert">PDFの生成に失敗しました：'+escapeHTML(progress.error)+'</div>';
+  if(progress.mode==='error')return '<div class="pdf-status pdf-error" role="alert">PDFの生成に失敗しました：'+escapeHTML(progress.error)+'<div><button type="button" class="btn small" id="retryDirectPdf">再試行</button></div></div>';
   return '';
  }
  function update(){
   const bar=document.querySelector('[data-pdf-status="'+progress.scope+'"]');
-  if(bar)bar.innerHTML=status();
+  if(bar){bar.innerHTML=status();const retry=bar.querySelector('#retryDirectPdf');if(retry)retry.onclick=()=>{if(lastJob&&!busy)download(lastJob.papers,lastJob.base,lastJob.scope);};}
   document.querySelectorAll('[data-direct-pdf]').forEach(el=>{el.disabled=busy||el.dataset.noSelection==='1';});
  }
  async function download(papers,base,scope){
   if(busy)return;
   if(!papers.length){toast('PDFに出力する生徒がいません。','error');return;}
-  busy=true;progress={mode:'working',done:0,total:papers.length,error:'',scope};update();
+  lastJob={papers,base,scope};busy=true;progress={mode:'working',done:0,total:papers.length,error:'',scope};update();
   try{
    await new Promise(resolve=>requestAnimationFrame(resolve));
    const images=[];
