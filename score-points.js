@@ -38,6 +38,88 @@
    }
    return people;
  }
+
+ // Temporary score overlay for newly generated reports from old deviation-only imports.
+ // Nothing is written to localStorage or existing archived snapshots.
+ const temporaryPointsByExamStudent=new Map();
+ const originalScoresOf=scoresOf;
+ scoresOf=function(studentId,filterIds=null){
+   return originalScoresOf(studentId,filterIds).map(entry=>{
+     const points=temporaryPointsByExamStudent.get(entry.exam.id+'|'+studentId);
+     return points?{...entry,score:{...entry.score,points:{...(entry.score?.points||{}),...points}}}:entry;
+   });
+ };
+ function scoreMatches(original,imported){
+   const keys=['ja','ma','en','sc','so','total','two','three'];
+   const shared=keys.filter(k=>original?.[k]!=null&&imported?.[k]!=null);
+   return shared.length>0&&shared.every(k=>Math.abs(Number(original[k])-Number(imported[k]))<=0.15);
+ }
+ function findMatchingExam(meta){
+   const grade=validGrade(meta.grade);
+   const candidates=state.exams.filter(e=>e.date===meta.date&&validGrade(e.grade)===grade);
+   const named=candidates.filter(e=>norm(e.name)===norm(meta.name));
+   if(named.length===1)return named[0];
+   const byRound=candidates.filter(e=>meta.round!=null&&Number(e.round)===Number(meta.round));
+   if(byRound.length===1)return byRound[0];
+   if(candidates.length===1)return candidates[0];
+   throw Error('登録済みの模試を一意に特定できません：'+meta.name+'（'+meta.date+'）');
+ }
+ async function temporaryPointsFromFiles(files){
+   if(!files.length)return;
+   try{
+     const staged=new Map();
+     let imported=0;
+     for(const file of files){
+       const sheet=await readXlsx(file);
+       const meta=parseMeta(sheet.rows,file.name);
+       const info=guessMapping(sheet.rows,sheet.maxCols);
+       const people=previewRows(sheet.rows,info.mapping,info.headerRow);
+       if(!people.length)throw Error(file.name+'：生徒の成績を読み取れませんでした。');
+       const exam=findMatchingExam(meta);
+       const studentNames=new Map();
+       for(const student of state.students){
+         const key=norm(student.name);
+         if(!studentNames.has(key))studentNames.set(key,[]);
+         studentNames.get(key).push(student);
+       }
+       const importedNames=new Set();
+       for(const person of people){
+         const keyName=norm(person.name);
+         if(importedNames.has(keyName))throw Error('Excel内に同姓同名の生徒がいます：'+person.name);
+         importedNames.add(keyName);
+         const matches=studentNames.get(keyName)||[];
+         if(matches.length!==1)throw Error('生徒を一意に特定できません：'+person.name);
+         const student=matches[0];
+         const existing=state.scores.find(s=>s.studentId===student.id&&s.examId===exam.id);
+         if(!existing||!scoreMatches(existing,person.scores))
+           throw Error('登録済みの偏差値と一致しません：'+person.name);
+         const points=Object.fromEntries(Object.entries(person.scores.points||{}).filter(([,value])=>value!=null));
+         if(!Object.keys(points).length)throw Error('Excelから点数を読み取れません：'+person.name+'。得点列を確認してください。');
+         staged.set(exam.id+'|'+student.id,points);
+         imported++;
+       }
+     }
+     if(!staged.size)throw Error('点数のある成績が見つかりませんでした。');
+     for(const [key,value] of staged)temporaryPointsByExamStudent.set(key,value);
+     render();
+     toast(imported+'件の点数を今回の成績表に読み込みました。元の登録データと保存済みセットは変更していません。');
+   }catch(e){toast('点数を読み込めませんでした：'+e.message,'error');}
+ }
+ function temporaryPointsPicker(){
+   let input=document.getElementById('temporaryPointsExcelInput');
+   if(!input){
+     input=document.createElement('input');
+     input.id='temporaryPointsExcelInput';input.type='file';
+     input.accept='.xlsx';input.multiple=true;input.hidden=true;
+     document.body.appendChild(input);
+     input.addEventListener('change',async()=>{
+       const files=Array.from(input.files||[]);
+       input.value='';
+       await temporaryPointsFromFiles(files);
+     });
+   }
+   input.click();
+ }
  const oldPreviewRows=previewRows;
  previewRows=function(rows,mapping,headerRow){
    const people=oldPreviewRows(rows,mapping,headerRow);
@@ -172,6 +254,7 @@
    const ids=new Set(studentIds);
    const filtered=state.scores.filter(s=>ids.has(s.studentId));
    return filtered.filter(s=>SUBJECTS.some(([k])=>s[k]!=null)||(typeof ELEMENTARY_FIELDS!=='undefined'&&ELEMENTARY_FIELDS.some(([k])=>s[k]!=null)))
+     .filter(s=>!temporaryPointsByExamStudent.has(s.examId+'|'+s.studentId))
      .filter(s=>!s.points||!Object.values(s.points).some(v=>v!=null)).length;
  }
  function addPointsRecoveryHint(){
@@ -190,10 +273,10 @@
    const box=document.createElement('div');
    box.id='missingPointsHint';box.className='missing-points-hint';
    const intro=document.createElement('div');
-   intro.textContent='点数が未登録の模試が'+missing+'件あります。旧バージョンで登録した模試の点数は、元のExcelを再度読み込むと補完できます。既存の偏差値やグラフは変更しません。';
+   intro.textContent='点数が未登録の成績が'+missing+'件あります。元のExcelを選ぶと、新しく作成する成績表に点数を読み込めます。過去の成績表や登録済みデータは変更しません。';
    const btn=document.createElement('button');
-   btn.className='btn small';btn.type='button';btn.textContent='元のExcelから点数を補完';
-   btn.addEventListener('click',()=>document.getElementById('excelInput')?.click());
+   btn.className='btn small';btn.type='button';btn.textContent='今回の成績表にExcelの点数を読み込む';
+   btn.addEventListener('click',temporaryPointsPicker);
    box.append(intro,btn);
    const before=view.querySelector('.report-layout,.summary-grid');
    if(before)before.insertAdjacentElement('beforebegin',box);
