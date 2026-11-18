@@ -49,22 +49,18 @@
    const n=Number(value);
    return Number.isInteger(n)?String(n):String(Math.round(n*10)/10);
  }
- function pairedCell(deviation,points){
-   const hasDeviation=deviation!=null;
-   const hasPoints=points!=null;
-   return '<td class="score-pair-cell"><span class="score-deviation"><span class="score-kind">偏</span> '+(hasDeviation?fmt(deviation):'—')+'</span>'+
-    '<span class="score-points"><span class="score-kind">点</span> '+(hasPoints?formatPoint(points):'—')+'</span></td>';
- }
  function pairedTable(rows,elementary,cls,order='date'){
    const choices=elementary?ELEMENTARY_FIELDS:SUBJECTS;
-   // Elementary school: do not show a column that is missing throughout the selected exams.
    const fields=elementary?choices.filter(([k])=>rows.some(r=>r.score?.[k]!=null||r.score?.points?.[k]!=null)):choices;
    const main=order==='name'?[['name','模試'],['date','実施日']]:[['date','実施日'],['name','模試']];
-   const head='<thead><tr>'+main.map(x=>'<th>'+x[1]+'</th>').join('')+
-    fields.map(x=>'<th>'+escapeHTML(x[1])+'</th>').join('')+'</tr></thead>';
-   const body='<tbody>'+rows.map(r=>'<tr>'+main.map(([k])=>'<td>'+escapeHTML(k==='date'?r.exam.date:r.exam.name)+'</td>').join('')+
-    fields.map(([k])=>pairedCell(r.score?.[k],r.score?.points?.[k])).join('')+'</tr>').join('')+'</tbody>';
-   return '<table class="'+cls+' score-dual-table">'+head+body+'</table>';
+   const headers='<thead><tr>'+main.map(([,label])=>'<th class="score-fixed-heading" rowspan="2">'+label+'</th>').join('')+
+      fields.map(([,label])=>'<th class="score-subject-heading" colspan="2">'+escapeHTML(label)+'</th>').join('')+
+      '</tr><tr>'+fields.map(()=>'<th class="score-deviation-heading">偏差値</th><th class="score-points-heading">点数</th>').join('')+'</tr></thead>';
+   const body='<tbody>'+rows.map(r=>'<tr>'+
+      main.map(([k])=>'<td class="score-meta-cell">'+escapeHTML(k==='date'?r.exam.date:r.exam.name)+'</td>').join('')+
+      fields.map(([k])=>'<td class="score-deviation-value">'+(r.score?.[k]!=null?fmt(r.score[k]):'—')+'</td>'+
+         '<td class="score-points-value">'+(r.score?.points?.[k]!=null?formatPoint(r.score.points[k]):'—')+'</td>').join('')+'</tr>').join('')+'</tbody>';
+   return '<table class="'+cls+' score-dual-table">'+headers+body+'</table>';
  }
  function replaceTable(html,cls,table){
    const find=new RegExp('<table class="'+cls+'[^\"]*">[\\s\\S]*?<\\/table>');
