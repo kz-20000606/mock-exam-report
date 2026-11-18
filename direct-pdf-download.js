@@ -40,14 +40,15 @@
  function drawTable(ctx,table,y,endY){
   if(!table)return y;
   const headers=[...table.querySelectorAll('thead th')].map(x=>x.textContent.trim());
-  const rows=[...table.querySelectorAll('tbody tr')].map(row=>[...row.querySelectorAll('td')].map(c=>c.textContent.trim()));
+  const rows=[...table.querySelectorAll('tbody tr')].map(row=>[...row.querySelectorAll('td')]);
   if(!headers.length)return y;
   const x=30,w=W-60;
   const fixed=headers.length>=3?[108,Math.min(245,Math.max(175,w*.25))]:[];
   const flexible=w-fixed.reduce((a,b)=>a+b,0);
   const widths=headers.map((_,i)=>i<fixed.length?fixed[i]:flexible/(headers.length-fixed.length));
-  const headerHeight=26,rowHeight=Math.min(27,Math.max(6,(endY-y-headerHeight)/Math.max(1,rows.length)));
-  const txtSize=Math.min(13,Math.max(7,rowHeight*.66));
+  const headerHeight=26,rowHeight=Math.min(30,Math.max(7,(endY-y-headerHeight)/Math.max(1,rows.length)));
+  const dual=table.classList.contains('score-dual-table');
+  const txtSize=dual?Math.min(11,Math.max(6.5,rowHeight*.40)):Math.min(13,Math.max(7,rowHeight*.66));
   ctx.fillStyle='#edf2f6';ctx.fillRect(x,y,w,headerHeight);
   line(ctx,x,y,x+w,y);line(ctx,x,y+headerHeight,x+w,y+headerHeight);
   let cx=x;
@@ -61,10 +62,21 @@
   rows.forEach((cells,index)=>{
    const ry=y+headerHeight+index*rowHeight;
    if(index%2===1){ctx.fillStyle='#f9fbfc';ctx.fillRect(x,ry,w,rowHeight)}
-   font(ctx,txtSize);ctx.fillStyle='#293949';
    let tx=x;
-   cells.slice(0,headers.length).forEach((val,i)=>{
-    clippedText(ctx,val,tx+widths[i]/2,ry+rowHeight/2+txtSize*.34,widths[i]-7,'center');tx+=widths[i];
+   cells.slice(0,headers.length).forEach((cell,i)=>{
+    const maxWidth=widths[i]-6;
+    const deviation=cell.querySelector('.score-deviation');
+    const points=cell.querySelector('.score-points');
+    if(dual&&deviation&&points){
+      font(ctx,txtSize,true);ctx.fillStyle='#205783';
+      clippedText(ctx,deviation.textContent.trim(),tx+widths[i]/2,ry+Math.max(txtSize,rowHeight*.38),maxWidth,'center');
+      ctx.fillStyle='#a45b19';
+      clippedText(ctx,points.textContent.trim(),tx+widths[i]/2,ry+Math.max(txtSize*2.1,rowHeight*.80),maxWidth,'center');
+    }else{
+      font(ctx,dual?Math.min(11,txtSize*1.15):txtSize);ctx.fillStyle='#293949';
+      clippedText(ctx,cell.textContent.trim(),tx+widths[i]/2,ry+rowHeight/2+txtSize*.34,maxWidth,'center');
+    }
+    tx+=widths[i];
    });
    line(ctx,x,ry+rowHeight,x+w,ry+rowHeight);
   });
