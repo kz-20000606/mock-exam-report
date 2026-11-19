@@ -188,6 +188,11 @@
    return template.innerHTML;
  }
  window.normalizeReportScoreColumns=normalizePrintedTable;
+ // Show the same points-first order when opening an archived individual report.
+ const precedingFolderPersonPreview=folderPersonPreview;
+ folderPersonPreview=function(folder,paper){
+   return precedingFolderPersonPreview(folder,{...paper,html:normalizePrintedTable(paper.html)});
+ };
  const precedingPrintPaperHTML=printPaperHTML;
  printPaperHTML=function(papers,name){
    return precedingPrintPaperHTML(papers.map(normalizePrintedTable),name);
