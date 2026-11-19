@@ -135,6 +135,10 @@
    const choices=elementary?ELEMENTARY_FIELDS:SUBJECTS;
    const fields=elementary?choices.filter(([k])=>rows.some(r=>r.score?.[k]!=null||r.score?.points?.[k]!=null)):choices;
    const main=order==='name'?[['name','模試'],['date','実施日']]:[['date','実施日'],['name','模試']];
+   const columnCount=fields.length*2;
+   const fixedFirst=12,fixedSecond=22,remaining=66;
+   const unit=remaining/Math.max(1,columnCount);
+   const cols='<colgroup><col style="width:'+fixedFirst+'%"><col style="width:'+fixedSecond+'%">'+fields.map(()=>'<col style="width:'+unit+'%"><col style="width:'+unit+'%">').join('')+'</colgroup>';
    const headers='<thead><tr>'+main.map(([,label])=>'<th class="score-fixed-heading" rowspan="2">'+label+'</th>').join('')+
       fields.map(([,label])=>'<th class="score-subject-heading" colspan="2">'+escapeHTML(label)+'</th>').join('')+
       '</tr><tr>'+fields.map(()=>'<th class="score-deviation-heading">偏差値</th><th class="score-points-heading">点数</th>').join('')+'</tr></thead>';
@@ -142,7 +146,7 @@
       main.map(([k])=>'<td class="score-meta-cell">'+escapeHTML(k==='date'?r.exam.date:r.exam.name)+'</td>').join('')+
       fields.map(([k])=>'<td class="score-deviation-value">'+(r.score?.[k]!=null?fmt(r.score[k]):'—')+'</td>'+
          '<td class="score-points-value">'+(r.score?.points?.[k]!=null?formatPoint(r.score.points[k]):'—')+'</td>').join('')+'</tr>').join('')+'</tbody>';
-   return '<table class="'+cls+' score-dual-table">'+headers+body+'</table>';
+   return '<table class="'+cls+' score-dual-table">'+cols+headers+body+'</table>';
  }
  function replaceTable(html,cls,table){
    const find=new RegExp('<table class="'+cls+'[^\"]*">[\\s\\S]*?<\\/table>');
