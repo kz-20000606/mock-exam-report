@@ -136,7 +136,7 @@
    const fields=elementary?choices.filter(([k])=>rows.some(r=>r.score?.[k]!=null||r.score?.points?.[k]!=null)):choices;
    const main=order==='name'?[['name','模試'],['date','実施日']]:[['date','実施日'],['name','模試']];
    const columnCount=fields.length*2;
-   const fixedFirst=12,fixedSecond=22,remaining=66;
+   const fixedFirst=9,fixedSecond=30,remaining=61;
    const unit=remaining/Math.max(1,columnCount);
    const cols='<colgroup><col style="width:'+fixedFirst+'%"><col style="width:'+fixedSecond+'%">'+fields.map(()=>'<col style="width:'+unit+'%"><col style="width:'+unit+'%">').join('')+'</colgroup>';
    const headers='<thead><tr>'+main.map(([,label])=>'<th class="score-fixed-heading" rowspan="2">'+label+'</th>').join('')+
@@ -148,6 +148,32 @@
          '<td class="score-points-value">'+(r.score?.points?.[k]!=null?formatPoint(r.score.points[k]):'—')+'</td>').join('')+'</tr>').join('')+'</tbody>';
    return '<table class="'+cls+' score-dual-table">'+cols+headers+body+'</table>';
  }
+ // Reflow also works for previously saved snapshot HTML at print time.
+ // The archived HTML itself is never modified.
+ function normalizePrintedTable(html){
+   const template=document.createElement('template');
+   template.innerHTML=html;
+   template.content.querySelectorAll('table.score-dual-table').forEach(table=>{
+     const headings=table.querySelectorAll('thead tr:nth-child(2) th');
+     const subjects=Math.floor(headings.length/2);
+     if(!subjects)return;
+     const existing=table.querySelector('colgroup');
+     if(existing)existing.remove();
+     const group=document.createElement('colgroup');
+     const sizes=[9,30,...Array(subjects*2).fill(61/(subjects*2))];
+     for(const percent of sizes){
+       const col=document.createElement('col');
+       col.style.width=percent+'%';
+       group.appendChild(col);
+     }
+     table.insertBefore(group,table.firstChild);
+   });
+   return template.innerHTML;
+ }
+ const precedingPrintPaperHTML=printPaperHTML;
+ printPaperHTML=function(papers,name){
+   return precedingPrintPaperHTML(papers.map(normalizePrintedTable),name);
+ };
  function replaceTable(html,cls,table){
    const find=new RegExp('<table class="'+cls+'[^\"]*">[\\s\\S]*?<\\/table>');
    return html.replace(find,()=>table);
