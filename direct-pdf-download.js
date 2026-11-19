@@ -63,7 +63,7 @@
   ctx.fillRect(x,y,w,headerHeight);
   if(dual){
     for(let i=metaCount;i<columns;i++){
-      ctx.fillStyle=(i-metaCount)%2===0?'#d9eafa':'#ffe4c5';
+      ctx.fillStyle=(i-metaCount)%2===0?'#ffe4c5':'#d9eafa';
       ctx.fillRect(positions[i],y+headerTopHeight,widths[i],headerHeight-headerTopHeight);
     }
   }
@@ -96,7 +96,7 @@
     }
     second.forEach((heading,i)=>{
       const col=metaCount+i;
-      ctx.fillStyle=i%2===0?'#164f80':'#954813';
+      ctx.fillStyle=heading.classList.contains('score-points-heading')?'#954813':'#164f80';
       clippedText(ctx,heading.textContent.trim(),positions[col]+widths[col]/2,y+40,widths[col]-5,'center');
     });
   }else{
@@ -246,7 +246,7 @@
    await new Promise(resolve=>requestAnimationFrame(resolve));
    const images=[];
    for(const [index,html] of papers.entries()){
-    images.push(await jpegPage(html));
+    images.push(await jpegPage(typeof window.normalizeReportScoreColumns==='function'?window.normalizeReportScoreColumns(html):html));
     progress.done=index+1;update();
     await new Promise(resolve=>setTimeout(resolve,0));
    }
