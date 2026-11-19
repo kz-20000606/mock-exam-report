@@ -43,78 +43,96 @@
   const first=[...table.querySelectorAll('thead tr:first-child th')];
   const second=[...table.querySelectorAll('thead tr:nth-child(2) th')];
   const rows=[...table.querySelectorAll('tbody tr')].map(tr=>[...tr.querySelectorAll('td')]);
-  const headers=dual?[
-    ...first.filter(th=>th.rowSpan===2).map(th=>th.textContent.trim()),
-    ...second.map(th=>th.textContent.trim())
-  ]:first.map(th=>th.textContent.trim());
-  if(!headers.length)return y;
-  const x=30,w=W-60,metaCount=2;
-  const fixed=headers.length>=3?[w*.12,w*.22]:[];
-  const available=Math.max(0,w-fixed.reduce((a,b)=>a+b,0));
-  const widths=headers.map((_,i)=>i<fixed.length?fixed[i]:available/Math.max(1,headers.length-fixed.length));
+  const metaCount=2,x=30,w=W-60;
+  const fixed=[w*.12,w*.22];
+  const columns=dual?metaCount+second.length:first.length;
+  if(!columns)return y;
+  const available=w-fixed[0]-fixed[1];
+  const widths=Array.from({length:columns},(_,i)=>i<metaCount?fixed[i]:available/Math.max(1,columns-metaCount));
+  const headerTopHeight=dual?24:26;
   const headerHeight=dual?49:26;
   const rowHeight=Math.min(dual?26:27,Math.max(6,(endY-y-headerHeight)/Math.max(1,rows.length)));
   const cellSize=dual?Math.max(7.5,Math.min(10,rowHeight*.57)):Math.max(7,Math.min(13,rowHeight*.66));
-  ctx.fillStyle='#edf2f6';ctx.fillRect(x,y,w,headerHeight);
-  line(ctx,x,y,x+w,y);
-  let left=x;
+  const tableBottom=y+headerHeight+rows.length*rowHeight;
+  const positions=[x];
+  for(const width of widths)positions.push(positions.at(-1)+width);
+
+  // Paint all backgrounds first. Drawing borders only at the end prevents
+  // overlapping colored cells or zebra rows from erasing half the grid.
+  ctx.fillStyle='#edf2f6';
+  ctx.fillRect(x,y,w,headerHeight);
   if(dual){
-    font(ctx,10,true);ctx.fillStyle='#30465c';
-    for(let i=0;i<metaCount;i++){
-      clippedText(ctx,headers[i],left+widths[i]/2,y+29,widths[i]-5,'center');
-      left+=widths[i];
+    for(let i=metaCount;i<columns;i++){
+      ctx.fillStyle=(i-metaCount)%2===0?'#d9eafa':'#ffe4c5';
+      ctx.fillRect(positions[i],y+headerTopHeight,widths[i],headerHeight-headerTopHeight);
     }
-    for(let i=0;i<second.length;i+=2){
-      const wi=widths[metaCount+i]+widths[metaCount+i+1];
-      clippedText(ctx,first[metaCount+i/2]?.textContent.trim()||'',left+wi/2,y+16,wi-6,'center');
-      left+=wi;
-    }
-    line(ctx,x+fixed.reduce((a,b)=>a+b,0),y+24,x+w,y+24);
-    left=x+fixed.reduce((a,b)=>a+b,0);
-    second.forEach((head,i)=>{
-      const width=widths[i+metaCount];
-      ctx.fillStyle=i%2===0?'#d9eafa':'#ffe4c5';
-      ctx.fillRect(left+1,y+25,width-2,headerHeight-26);
-      ctx.fillStyle=i%2===0?'#205783':'#a45b19';
-      clippedText(ctx,head.textContent.trim(),left+width/2,y+40,width-3,'center');
-      left+=width;
-    });
-  }else{
-    left=x;
-    first.forEach((head,i)=>{
-      font(ctx,Math.max(9,cellSize),true);ctx.fillStyle='#30465c';
-      clippedText(ctx,head.textContent.trim(),left+widths[i]/2,y+headerHeight/2+4,widths[i]-6,'center');
-      left+=widths[i];
-    });
   }
-  line(ctx,x,y+headerHeight,x+w,y+headerHeight);
-  left=x;
-  for(let i=0;i<widths.length;i++){
-    const startY=dual&&i>=metaCount&&(i-metaCount)%2===1?y+24:y;
-    line(ctx,left,startY,left,y+headerHeight+rows.length*rowHeight,
-      dual&&i>=metaCount&&(i-metaCount)%2===0?'#9cadbf':'#d5dfe8',
-      dual&&i>=metaCount&&(i-metaCount)%2===0?1.5:1);
-    left+=widths[i];
-  }
-  line(ctx,x+w,y,x+w,y+headerHeight+rows.length*rowHeight);
   rows.forEach((cells,index)=>{
     const top=y+headerHeight+index*rowHeight;
-    if(index%2){ctx.fillStyle='#f9fbfc';ctx.fillRect(x,top,w,rowHeight);}
-    let cx=x;
-    cells.slice(0,headers.length).forEach((cell,i)=>{
-      const width=widths[i],cls=cell.classList;
+    if(index%2===1){
+      ctx.fillStyle='#f9fbfc';
+      ctx.fillRect(x,top,w,rowHeight);
+    }
+    cells.slice(0,columns).forEach((cell,i)=>{
       if(dual&&i>=metaCount){
-        ctx.fillStyle=cls.contains('score-deviation-value')?'#edf5fb':'#fff3e7';
-        ctx.fillRect(cx+1,top+1,Math.max(0,width-2),Math.max(0,rowHeight-2));
+        ctx.fillStyle=cell.classList.contains('score-deviation-value')?'#d9eafa':'#ffe4c5';
+        ctx.fillRect(positions[i],top,widths[i],rowHeight);
       }
-      font(ctx,cellSize,dual&&i>=metaCount);
-      ctx.fillStyle=dual&&cls.contains('score-deviation-value')?'#205783':dual&&cls.contains('score-points-value')?'#a45b19':'#293949';
-      clippedText(ctx,cell.textContent.trim(),cx+width/2,top+rowHeight/2+cellSize*.33,width-4,'center');
-      cx+=width;
     });
-    line(ctx,x,top+rowHeight,x+w,top+rowHeight);
   });
-  return y+headerHeight+rows.length*rowHeight;
+
+  // Two-level header: the subject name spans two actual columns.
+  font(ctx,10,true);
+  ctx.fillStyle='#30465c';
+  if(dual){
+    for(let i=0;i<metaCount;i++){
+      clippedText(ctx,first[i]?.textContent.trim()||'',positions[i]+widths[i]/2,y+29,widths[i]-8,'center');
+    }
+    for(let i=0;i<second.length;i+=2){
+      const subject=first[metaCount+i/2];
+      const left=positions[metaCount+i],size=widths[metaCount+i]+widths[metaCount+i+1];
+      ctx.fillStyle='#30465c';
+      clippedText(ctx,subject?.textContent.trim()||'',left+size/2,y+16,size-7,'center');
+    }
+    second.forEach((heading,i)=>{
+      const col=metaCount+i;
+      ctx.fillStyle=i%2===0?'#164f80':'#954813';
+      clippedText(ctx,heading.textContent.trim(),positions[col]+widths[col]/2,y+40,widths[col]-5,'center');
+    });
+  }else{
+    first.forEach((heading,i)=>{
+      ctx.fillStyle='#30465c';
+      clippedText(ctx,heading.textContent.trim(),positions[i]+widths[i]/2,y+headerHeight/2+4,widths[i]-8,'center');
+    });
+  }
+
+  rows.forEach((cells,index)=>{
+    const top=y+headerHeight+index*rowHeight;
+    cells.slice(0,columns).forEach((cell,i)=>{
+      font(ctx,cellSize,dual&&i>=metaCount);
+      ctx.fillStyle=dual&&cell.classList.contains('score-deviation-value')?'#164f80':
+        dual&&cell.classList.contains('score-points-value')?'#954813':'#293949';
+      clippedText(ctx,cell.textContent.trim(),positions[i]+widths[i]/2,
+        top+rowHeight/2+cellSize*.33,widths[i]-6,'center');
+    });
+  });
+
+  // One uniform thin grid. Internal deviation/points dividers begin below
+  // the merged subject header, not through its centre.
+  const gridColor='#cbd6e1',gridWidth=.8;
+  for(let i=0;i<positions.length;i++){
+    const isInternal=dual&&i>metaCount&&(i-metaCount)%2===1;
+    line(ctx,positions[i],isInternal?y+headerTopHeight:y,
+      positions[i],tableBottom,gridColor,gridWidth);
+  }
+  line(ctx,x,y,x+w,y,gridColor,gridWidth);
+  if(dual)line(ctx,positions[metaCount],y+headerTopHeight,x+w,y+headerTopHeight,gridColor,gridWidth);
+  line(ctx,x,y+headerHeight,x+w,y+headerHeight,gridColor,gridWidth);
+  for(let row=1;row<=rows.length;row++){
+    const borderY=y+headerHeight+row*rowHeight;
+    line(ctx,x,borderY,x+w,borderY,gridColor,gridWidth);
+  }
+  return tableBottom;
  }
  function wrapText(ctx,value,width){
   const lines=[];
