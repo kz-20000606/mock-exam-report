@@ -49,7 +49,7 @@
   ]:first.map(th=>th.textContent.trim());
   if(!headers.length)return y;
   const x=30,w=W-60,metaCount=2;
-  const fixed=headers.length>=3?[108,Math.min(210,Math.max(155,w*.20))]:[];
+  const fixed=headers.length>=3?[w*.12,w*.22]:[];
   const available=Math.max(0,w-fixed.reduce((a,b)=>a+b,0));
   const widths=headers.map((_,i)=>i<fixed.length?fixed[i]:available/Math.max(1,headers.length-fixed.length));
   const headerHeight=dual?49:26;
@@ -73,6 +73,8 @@
     left=x+fixed.reduce((a,b)=>a+b,0);
     second.forEach((head,i)=>{
       const width=widths[i+metaCount];
+      ctx.fillStyle=i%2===0?'#d9eafa':'#ffe4c5';
+      ctx.fillRect(left+1,y+25,width-2,headerHeight-26);
       ctx.fillStyle=i%2===0?'#205783':'#a45b19';
       clippedText(ctx,head.textContent.trim(),left+width/2,y+40,width-3,'center');
       left+=width;
@@ -87,7 +89,13 @@
   }
   line(ctx,x,y+headerHeight,x+w,y+headerHeight);
   left=x;
-  for(const width of widths){line(ctx,left,y,left,y+headerHeight+rows.length*rowHeight);left+=width;}
+  for(let i=0;i<widths.length;i++){
+    const startY=dual&&i>=metaCount&&(i-metaCount)%2===1?y+24:y;
+    line(ctx,left,startY,left,y+headerHeight+rows.length*rowHeight,
+      dual&&i>=metaCount&&(i-metaCount)%2===0?'#9cadbf':'#d5dfe8',
+      dual&&i>=metaCount&&(i-metaCount)%2===0?1.5:1);
+    left+=widths[i];
+  }
   line(ctx,x+w,y,x+w,y+headerHeight+rows.length*rowHeight);
   rows.forEach((cells,index)=>{
     const top=y+headerHeight+index*rowHeight;
@@ -155,7 +163,9 @@
   const comment=report.querySelector('.paper-comment');
   const footer=report.querySelector('.footer-note')?.textContent||'';
   const tableStart=427,tableBottom=comment?670:725;
-  font(ctx,14,true);ctx.fillStyle='#293949';ctx.fillText('偏差値一覧',30,414);
+  font(ctx,14,true);ctx.fillStyle='#293949';
+  const tableHeading=table?.parentElement?.querySelector('strong')?.textContent?.trim()||'成績一覧（偏差値・点数）';
+  clippedText(ctx,tableHeading,30,414,W-60);
   const bottom=drawTable(ctx,table,tableStart,tableBottom);
   if(comment){
    ctx.textAlign='left';
