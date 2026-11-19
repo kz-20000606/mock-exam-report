@@ -141,11 +141,11 @@
    const cols='<colgroup><col style="width:'+fixedFirst+'%"><col style="width:'+fixedSecond+'%">'+fields.map(()=>'<col style="width:'+unit+'%"><col style="width:'+unit+'%">').join('')+'</colgroup>';
    const headers='<thead><tr>'+main.map(([,label])=>'<th class="score-fixed-heading" rowspan="2">'+label+'</th>').join('')+
       fields.map(([,label])=>'<th class="score-subject-heading" colspan="2">'+escapeHTML(label)+'</th>').join('')+
-      '</tr><tr>'+fields.map(()=>'<th class="score-deviation-heading">偏差値</th><th class="score-points-heading">点数</th>').join('')+'</tr></thead>';
+      '</tr><tr>'+fields.map(()=>'<th class="score-points-heading">点数</th><th class="score-deviation-heading">偏差値</th>').join('')+'</tr></thead>';
    const body='<tbody>'+rows.map(r=>'<tr>'+
       main.map(([k])=>'<td class="score-meta-cell">'+escapeHTML(k==='date'?r.exam.date:r.exam.name)+'</td>').join('')+
-      fields.map(([k])=>'<td class="score-deviation-value">'+(r.score?.[k]!=null?fmt(r.score[k]):'—')+'</td>'+
-         '<td class="score-points-value">'+(r.score?.points?.[k]!=null?formatPoint(r.score.points[k]):'—')+'</td>').join('')+'</tr>').join('')+'</tbody>';
+      fields.map(([k])=>'<td class="score-points-value">'+(r.score?.points?.[k]!=null?formatPoint(r.score.points[k]):'—')+'</td>'+
+        '<td class="score-deviation-value">'+(r.score?.[k]!=null?fmt(r.score[k]):'—')+'</td>').join('')+'</tr>').join('')+'</tbody>';
    return '<table class="'+cls+' score-dual-table">'+cols+headers+body+'</table>';
  }
  // Reflow also works for previously saved snapshot HTML at print time.
@@ -154,9 +154,26 @@
    const template=document.createElement('template');
    template.innerHTML=html;
    template.content.querySelectorAll('table.score-dual-table').forEach(table=>{
-     const headings=table.querySelectorAll('thead tr:nth-child(2) th');
+     const headings=[...table.querySelectorAll('thead tr:nth-child(2) th')];
      const subjects=Math.floor(headings.length/2);
      if(!subjects)return;
+     // Old saved snapshots use 偏差値→点数; swap each cell in a pair
+     // without changing its text or CSS class. This is print-time only.
+     if(headings[0]?.classList.contains('score-deviation-heading')){
+       const second=table.querySelector('thead tr:nth-child(2)');
+       for(let i=0;i<headings.length;i+=2){
+         if(headings[i+1])second.insertBefore(headings[i+1],headings[i]);
+       }
+       for(const row of table.querySelectorAll('tbody tr')){
+         const cells=[...row.querySelectorAll('td')];
+         for(let i=2;i+1<cells.length;i+=2){
+           if(cells[i].classList.contains('score-deviation-value')&&
+              cells[i+1].classList.contains('score-points-value')){
+             row.insertBefore(cells[i+1],cells[i]);
+           }
+         }
+       }
+     }
      const existing=table.querySelector('colgroup');
      if(existing)existing.remove();
      const group=document.createElement('colgroup');
@@ -170,6 +187,7 @@
    });
    return template.innerHTML;
  }
+ window.normalizeReportScoreColumns=normalizePrintedTable;
  const precedingPrintPaperHTML=printPaperHTML;
  printPaperHTML=function(papers,name){
    return precedingPrintPaperHTML(papers.map(normalizePrintedTable),name);
