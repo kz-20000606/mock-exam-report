@@ -165,7 +165,7 @@
 /* v34: one consistent grid for the two-level score header and the body. */
 .score-dual-table{width:100%!important;table-layout:fixed!important;border-collapse:collapse!important;border-spacing:0!important;empty-cells:show}
 .score-dual-table th,.score-dual-table td{
- border:1px solid #d5dfe8!important;box-sizing:border-box!important;
+ border:1px solid #cbd6e1!important;box-sizing:border-box!important;
  text-align:center!important;vertical-align:middle!important;
 }
 .score-dual-table thead tr:first-child th{height:26px}
@@ -176,19 +176,19 @@
 .score-dual-table thead tr:first-child th.score-subject-heading,
 .score-dual-table thead tr:nth-child(2) th:nth-child(odd),
 .score-dual-table tbody td:nth-child(2n+3){
- border-left:2px solid #9cadbf!important;
+ border-left:1px solid #cbd6e1!important;
 }
 .score-dual-table tbody tr{height:26px}
 .score-dual-table .score-meta-cell{white-space:normal!important;overflow-wrap:anywhere;line-height:1.2}
 .report-paper .score-dual-table th,.report-paper .score-dual-table td{padding:2px 1px!important}
 @media print{
  #printRoot .score-dual-table th,#printRoot .score-dual-table td{
-   border:1px solid #d5dfe8!important;print-color-adjust:exact!important;
+   border:1px solid #cbd6e1!important;print-color-adjust:exact!important;
    -webkit-print-color-adjust:exact!important;
  }
  #printRoot .score-dual-table thead tr:first-child th.score-subject-heading,
  #printRoot .score-dual-table thead tr:nth-child(2) th:nth-child(odd),
  #printRoot .score-dual-table tbody td:nth-child(2n+3){
-   border-left:2px solid #9cadbf!important;
+   border-left:1px solid #cbd6e1!important;
  }
 }
