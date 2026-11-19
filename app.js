@@ -113,10 +113,10 @@ function labeledExamName(rows){
  for(const row of heads){
    const cells=(row||[]).slice(0,30).map(v=>typeof v==='string'?v.trim():'');
    for(let i=0;i<cells.length;i++){
-     const cell=cells[i];const inlineMatch=cell.match(inline);
+     const cell=String(cells[i]??'');const inlineMatch=inline.exec(cell);
      if(inlineMatch&&good(inlineMatch[1].trim()))return inlineMatch[1].trim();
      if(key.test(cell)){
-       const candidate=cells.slice(i+1).find(v=>v&&good(v));
+       const candidate=cells.slice(i+1).find(v=>typeof v==='string'&&v&&good(v));
        if(candidate)return candidate;
      }
    }
