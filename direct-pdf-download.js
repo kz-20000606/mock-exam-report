@@ -43,8 +43,8 @@
   const first=[...table.querySelectorAll('thead tr:first-child th')];
   const second=[...table.querySelectorAll('thead tr:nth-child(2) th')];
   const rows=[...table.querySelectorAll('tbody tr')].map(tr=>[...tr.querySelectorAll('td')]);
-  const metaCount=2,x=30,w=W-60;
-  const fixed=[w*.12,w*.22];
+  const metaCount=2,x=42,w=W-84;
+  const fixed=[w*.09,w*.30];
   const columns=dual?metaCount+second.length:first.length;
   if(!columns)return y;
   const available=w-fixed[0]-fixed[1];
