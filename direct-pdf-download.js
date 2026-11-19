@@ -312,6 +312,11 @@
   }
   update();
  }
+ // Download the currently displayed saved snapshot, without regenerating its scores.
+ window.downloadArchivedIndividualPDF=function(folder,paper){
+  if(!folder||!paper)return;
+  return download([paper.html],archiveName(folder,[paper]),'archive');
+ };
  const oldRender=render;
  render=function(){const result=oldRender();if(route==='report')enhanceReport();if(route==='archive')enhanceArchive();return result;};
  const oldFolderBindings=bindFolderHandlers;
