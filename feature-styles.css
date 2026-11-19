@@ -192,3 +192,32 @@
    border-left:1px solid #cbd6e1!important;
  }
 }
+
+/* v36: avoid clipping the left table edge and preserve the exam title on one line. */
+.score-dual-table .score-meta-cell:nth-child(2){
+  white-space:nowrap!important;
+  overflow:visible!important;
+  text-overflow:clip!important;
+  overflow-wrap:normal!important;
+  word-break:normal!important;
+}
+#appView .score-dual-table .score-meta-cell:nth-child(2){
+  white-space:nowrap!important;
+}
+@media print{
+  #printRoot .report-paper{
+    padding-left:9mm!important;
+    padding-right:9mm!important;
+    padding-top:3mm!important;
+  }
+  #printRoot .score-dual-table{
+    width:100%!important;
+    max-width:100%!important;
+    margin-left:0!important;
+  }
+  #printRoot .score-dual-table .score-meta-cell:nth-child(2){
+    white-space:nowrap!important;
+    overflow:visible!important;
+    font-size:inherit!important;
+  }
+}
