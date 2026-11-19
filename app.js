@@ -101,7 +101,7 @@ const parseXML=bytes=>{const xml=new DOMParser().parseFromString(new TextDecoder
 function findTags(root,name){return Array.from(root.getElementsByTagName(name))}
 function colIndex(ref){const letters=String(ref).match(/^[A-Z]+/i)?.[0]||'';let n=0;for(const c of letters.toUpperCase())n=n*26+c.charCodeAt(0)-64;return n-1}
 function colName(n){let result='';for(n++;n>0;n=Math.floor((n-1)/26))result=String.fromCharCode(65+(n-1)%26)+result;return result}
-async function readXlsx(file){const z=await unzipEntries(await file.arrayBuffer());if(!z['xl/workbook.xml'])throw Error('有効な.xlsxではありません。');let shared=[];if(z['xl/sharedStrings.xml']){const xml=parseXML(await z['xl/sharedStrings.xml']());shared=findTags(xml,'si').map(si=>findTags(si,'t').map(t=>t.textContent).join(''))}const sheetNames=Object.keys(z).filter(k=>/^xl\/worksheets\/sheet\d+\.xml$/.test(k)).sort((a,b)=>Number(a.match(/sheet(\d+)/)[1])-Number(b.match(/sheet(\d+)/)[1]));if(!sheetNames.length)throw Error('成績のワークシートが見つかりません。');let candidate=null;for(const name of sheetNames){const xml=parseXML(await z[name]()),rows=[];for(const row of findTags(xml,'row')){for(const c of findTags(row,'c')){const ref=c.getAttribute('r');if(!ref)continue;const ri=Number(ref.match(/\d+/)?.[0]||0)-1,ci=colIndex(ref);if(ri<0||ri>20000||ci<0||ci>500)continue;const type=c.getAttribute('t'),v=findTags(c,'v')[0],is=findTags(c,'is')[0];let value=type==='inlineStr'?(is?findTags(is,'t').map(x=>x.textContent).join(''):''):v?.textContent??null;if(type==='s')value=shared[Number(value)]??'';if(type==='n'||(!type&&value!==null&&value!==''))value=Number.isFinite(Number(value))?Number(value):value;if(!rows[ri])rows[ri]=[];rows[ri][ci]=value;}}const maxCols=rows.reduce((a,r)=>Math.max(a,r?.length||0),0);const top=rows.slice(0,Math.min(18,rows.length)).flatMap(r=>r||[]).map(v=>String(v??''));const points=top.filter(t=>/氏名|偏差値|総合/.test(t)).length;const result={rows,maxCols,sheetName:name,points};if(!candidate||result.points>candidate.points)candidate=result;}return candidate}
+async function readXlsx(file){const z=await unzipEntries(await file.arrayBuffer());if(!z['xl/workbook.xml'])throw Error('有効な.xlsxではありません。');let shared=[];if(z['xl/sharedStrings.xml']){const xml=parseXML(await z['xl/sharedStrings.xml']());shared=findTags(xml,'si').map(si=>findTags(si,'t').map(t=>t.textContent).join(''))}const sheetNames=Object.keys(z).filter(k=>/^xl\/worksheets\/sheet\d+\.xml$/.test(k)).sort((a,b)=>Number(/sheet(\d+)\.xml$/.exec(String(a??''))?.[1]||0)-Number(/sheet(\d+)\.xml$/.exec(String(b??''))?.[1]||0));if(!sheetNames.length)throw Error('成績のワークシートが見つかりません。');let candidate=null;for(const name of sheetNames){const xml=parseXML(await z[name]()),rows=[];for(const row of findTags(xml,'row')){for(const c of findTags(row,'c')){const ref=c.getAttribute('r');if(!ref)continue;const ri=Number(/\d+/.exec(String(ref))?.[0]||0)-1,ci=colIndex(ref);if(ri<0||ri>20000||ci<0||ci>500)continue;const type=c.getAttribute('t'),v=findTags(c,'v')[0],is=findTags(c,'is')[0];let value=type==='inlineStr'?(is?findTags(is,'t').map(x=>x.textContent).join(''):''):v?.textContent??null;if(type==='s')value=shared[Number(value)]??'';if(type==='n'||(!type&&value!==null&&value!==''))value=Number.isFinite(Number(value))?Number(value):value;if(!rows[ri])rows[ri]=[];rows[ri][ci]=value;}}const maxCols=rows.reduce((a,r)=>Math.max(a,r?.length||0),0);const top=rows.slice(0,Math.min(18,rows.length)).flatMap(r=>r||[]).map(v=>String(v??''));const points=top.filter(t=>/氏名|偏差値|総合/.test(t)).length;const result={rows,maxCols,sheetName:name,points};if(!candidate||result.points>candidate.points)candidate=result;}return candidate}
 const CLEAN=v=>String(v??'').normalize('NFKC').replace(/[\s\u3000]+/g,'').toLowerCase();
 function guessMapping(rows,maxCols){const maxR=Math.min(20,rows.length);let best=null;for(let r=0;r<maxR;r++){const row=rows[r]||[],next=rows[r+1]||[];const subjectPositions=[];for(let c=0;c<maxCols;c++){const v=CLEAN(row[c]);if(v==='総合'||v==='5教科'||v==='5教科総合'||v==='５教科'||v==='英語'||v==='数学'||v==='国語'||v==='理科'||v==='社会')subjectPositions.push({c,v})}if(!subjectPositions.length)continue;let matches={};for(let i=0;i<subjectPositions.length;i++){const obj=subjectPositions[i],end=subjectPositions[i+1]?.c??maxCols;const key=obj.v.includes('総合')||obj.v.includes('5教科')?'total':({国語:'ja',数学:'ma',英語:'en',理科:'sc',社会:'so'}[obj.v]);if(!key)continue;for(let k=obj.c;k<Math.min(end,obj.c+8,maxCols);k++){const tail=CLEAN(next[k]);if(tail.includes('偏差値')){matches[key]=k;break}}}let name=-1;for(let k=0;k<maxCols;k++)if(CLEAN(row[k])==='氏名'||CLEAN(row[k])==='名前'||CLEAN(row[k])==='生徒氏名')name=k;const score=Object.keys(matches).length*10+(name>=0?6:0);if(!best||score>best.score)best={score,headerRow:r,mapping:{name,...matches}}}if(best)return best; // single-row generic labels fallback
  const mapping={name:-1};for(let r=0;r<maxR;r++){for(let c=0;c<maxCols;c++){const v=CLEAN(rows[r]?.[c]);if(v==='氏名')mapping.name=c;for(const [key,label] of SUBJECTS)if(v===CLEAN(label+'偏差値'))mapping[key]=c}}return {headerRow:Math.min(3,rows.length-1),mapping,score:0}}
@@ -152,11 +152,24 @@ async function startImport(files){
   for(let i=0;i<files.length;i++){
     const file=files[i];
     if($('#batchProgress'))$('#batchProgress').textContent=`${i+1} / ${files.length}：${file.name}`;
+    let stage='Excelファイルの展開';
     try{
-      const sheet=await readXlsx(file),info=guessMapping(sheet.rows,sheet.maxCols),meta=parseMeta(sheet.rows,file.name);
+      const sheet=await readXlsx(file);
+      if(!sheet||!Array.isArray(sheet.rows))throw Error('成績のワークシートが見つかりません。');
+      stage='成績列の判定';
+      const info=guessMapping(sheet.rows,sheet.maxCols);
+      if(!info||!info.mapping)throw Error('成績列を判定できません。');
+      stage='模試情報の判定';
+      const meta=parseMeta(sheet.rows,file.name);
+      stage='生徒データの確認';
       const d={file,sheet,meta,headerRow:info.headerRow,mapping:info.mapping,selected:true,error:''};
       d.problem=validateBatchDraft(d);batchDrafts.push(d);
-    }catch(e){batchDrafts.push({file,error:e.message,selected:false,problem:e.message});}
+    }catch(e){
+      console.error('Excel取り込みのエラー：'+stage,e);
+      const detail=String(e?.message||e||'不明なエラー');
+      const message=stage+'で失敗：'+detail;
+      batchDrafts.push({file,error:message,selected:false,problem:message});
+    }
   }
   batchBusy=false;
   renderBatchImport();
