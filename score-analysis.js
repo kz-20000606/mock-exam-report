@@ -45,7 +45,10 @@
     // Only a consecutive pair of exam rounds counts as a 'recent change'.
     const values=all.map(row=>scoreNumber(row,key));
     const latest=values.at(-1)??null,previous=values.at(-2)??null;
-    const recent=latest!=null&&previous!=null?latest-previous:null;
+    const subjectCounts=key==='total'&&isElementaryGrade(activeWorkspace.split(':')[1])
+      ?all.map(r=>['ja','ma','sc','so'].filter(k=>scoreNumber(r,k)!=null).length):null;
+    const comparable=(i,j)=>!subjectCounts||(subjectCounts[i]>=2&&subjectCounts[i]===subjectCounts[j]);
+    const recent=latest!=null&&previous!=null&&comparable(values.length-2,values.length-1)?latest-previous:null;
     const available=values.filter(v=>v!=null);
     const flags=[],reasons=[];
     const add=(flag,text)=>{flags.push(flag);reasons.push(text)};
@@ -58,7 +61,8 @@
     }
     const last4=values.slice(-4);
     const last3=values.slice(-4); // 4 results are necessary for three successive moves.
-    if(last3.length===4&&last3.every(v=>v!=null)){
+    if(last3.length===4&&last3.every(v=>v!=null)&&
+      (!subjectCounts||subjectCounts.slice(-4).every(n=>n>=2&&n===subjectCounts.at(-1)))){
       const steps=last3.slice(1).map((v,i)=>v-last3[i]);
       const total=last3[3]-last3[0];
       if(steps.every(x=>x<0)&&total<=-5)
@@ -66,7 +70,8 @@
       if(steps.every(x=>x>0)&&total>=5)
         add('sustainedUp','3回連続上昇：'+fmtDiff(total)+'（'+last3[0].toFixed(1)+' → '+last3[3].toFixed(1)+'）');
     }
-    if(last4.length===4&&last4.every(v=>v!=null)){
+    if(last4.length===4&&last4.every(v=>v!=null)&&
+      (!subjectCounts||subjectCounts.slice(-4).every(n=>n>=2&&n===subjectCounts.at(-1)))){
       const span=Math.max(...last4)-Math.min(...last4);
       if(span>=SWING)add('unstable','直近4回の最大・最小差 '+span.toFixed(1));
     }
@@ -148,11 +153,11 @@
       '<input id="analysisSearch" class="field" type="search" placeholder="氏名で絞り込み" value="'+escapeHTML(query)+'">'+
       '<div class="analysis-roster-list">'+(matches.length?matches.map(row=>
         '<button class="analysis-person '+(selectedId===row.student.id?'active':'')+'" data-analysis-student="'+escapeHTML(row.student.id)+'" type="button"><span class="analysis-person-name">'+escapeHTML(row.student.name)+'</span>'+
-        '<span class="analysis-person-delta '+(row.recent!=null&&row.recent<0?'is-drop':'is-rise')+'">'+fmtDiff(row.recent)+'</span><small>'+row.flags.map(flag=>labels[flag]).join('・')+'</small></button>').join(''):
+        '<span class="analysis-person-delta '+(row.recent==null?'':row.recent<0?'is-drop':row.recent>0?'is-rise':'')+'">'+fmtDiff(row.recent)+'</span><small>'+row.flags.map(flag=>labels[flag]).join('・')+'</small></button>').join(''):
         '<p class="muted">この条件に該当する生徒はいません。</p>')+'</div></aside>'+
       '<section class="analysis-details"><div class="analysis-detail-heading"><strong>分析詳細</strong><div class="analysis-navigator"><button id="analysisPrev" class="btn small" type="button">← 前へ</button><span id="analysisPosition">'+(chosen?matches.indexOf(chosen)+1:0)+' / '+matches.length+'名</span><button id="analysisNext" class="btn small" type="button">次へ →</button></div></div>'+
       '<div id="analysisDetailsContent">'+linesFor(chosen)+'</div></section>'+
-      '</div><p class="muted tiny">判定基準：直近 ±5以上／急変 ±8以上／3回連続上昇・下降（計5以上）／直近4回の変動幅12以上。同じ模試シリーズ内の連続する回を比較します。未受験は0点とみなしません。</p></div>';
+      '</div><p class="muted tiny">判定基準：直近 ±5以上／急変 ±8以上／3回連続上昇・下降（計5以上）／直近4回の変動幅12以上。同じ模試シリーズ内の連続する回を比較します。未受験は0点とみなさず、小学生の総合偏差値は受験科目数が異なる回を比較しません。</p></div>';
   }
   function navigate(step){
     const list=filtered(entries()),idx=list.findIndex(r=>r.student.id===selectedId);
