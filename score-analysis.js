@@ -208,6 +208,9 @@
     if(route!=='analysis')return previousRender();
     header('成績分析','上昇・下降・急変の自動抽出と科目別の推移確認');
     document.getElementById('appView').innerHTML=view();
+    // This route overrides the normal renderer, so the shared workspace
+    // selectors must be mounted explicitly for the analysis screen.
+    refreshWorkspaceControls();
     bind();
   };
   document.addEventListener('keydown',event=>{
