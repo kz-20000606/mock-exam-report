@@ -5,13 +5,14 @@
   const PREF_KEY = 'mock-exam-screen-workspace-v1';
   const scopeForRoute = r => r === 'archive' ? 'archive'
     : (r === 'students' || r === 'detail' || r === 'report') ? 'students'
-    : r === 'exams' ? 'exams' : null;
+    : r === 'exams' ? 'exams' : r === 'analysis' ? 'analysis' : null;
   let preferences;
   try { preferences = JSON.parse(localStorage.getItem(PREF_KEY) || '{}') || {}; }
   catch (_) { preferences = {}; }
   if (!preferences.students) preferences.students = activeWorkspace;
   if (!preferences.archive) preferences.archive = activeWorkspace;
   if (!preferences.exams) preferences.exams = activeWorkspace;
+  if (!preferences.analysis) preferences.analysis = activeWorkspace;
   const persist = () => { try { localStorage.setItem(PREF_KEY, JSON.stringify(preferences)); } catch (_) {} };
   const valid = id => /^\d{4}:(中[123]|小[1-6]|未分類)$/.test(id || '');
   const priorSwitch = switchWorkspace;
