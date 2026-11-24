@@ -265,3 +265,66 @@
  .archive-browser-expanded .archive-paper-scroller{max-height:calc(100vh - 350px)}
 }
 @media print{.archive-browser{display:none!important}}
+
+/* v39 — Read-only analysis, consistent with the archive list/preview interface. */
+.analysis-view{min-width:0}
+.analysis-intro{margin:0 0 16px}
+.analysis-intro>strong{font-size:15px}
+.analysis-intro p{color:#667789;margin:5px 0 0;font-size:12px}
+.analysis-controls{display:grid;grid-template-columns:1fr 1.4fr 1.1fr;gap:11px;margin:0 0 14px}
+.analysis-controls label{display:grid;gap:5px;font-size:12px;color:#47596a;font-weight:650;min-width:0}
+.analysis-controls .field{min-width:0;width:100%;font-weight:400}
+.analysis-category-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:17px}
+.analysis-category{border:1px solid #d6e0e8;background:#fff;border-radius:5px;display:flex;justify-content:space-between;align-items:center;gap:7px;padding:11px 10px;text-align:left;color:#31485a;font-size:12px}
+.analysis-category strong{font-size:15px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.analysis-category:hover{background:#f3f8fb}
+.analysis-category.selected{border:2px solid #3d739f;background:#eaf3fa;padding:10px 9px}
+.analysis-layout{display:grid;grid-template-columns:minmax(190px,250px) minmax(0,1fr);gap:14px;align-items:start}
+.analysis-roster,.analysis-details{background:#fff;border:1px solid #d9e2eb;border-radius:5px;min-width:0;padding:12px}
+.analysis-roster{position:sticky;top:10px}
+.analysis-roster-top{display:flex;justify-content:space-between;align-items:center;font-size:13px;margin-bottom:10px}
+.analysis-roster-top span{font-size:11px;color:#66798c}
+.analysis-roster .field{width:100%;min-width:0}
+.analysis-roster-list{display:flex;flex-direction:column;gap:4px;margin-top:10px;max-height:66vh;overflow:auto}
+.analysis-person{background:white;border:1px solid #e0e7ed;border-radius:4px;width:100%;padding:10px;text-align:left;display:grid;grid-template-columns:1fr auto;gap:4px 8px}
+.analysis-person:hover{background:#f4f8fb}
+.analysis-person.active{border-color:#96bedc;background:#edf5fb}
+.analysis-person-name{font-size:13px;font-weight:700;overflow-wrap:anywhere}
+.analysis-person-delta{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums}
+.analysis-person small{grid-column:1/-1;color:#748295;font-size:10px;line-height:1.45}
+.analysis-detail-heading,.analysis-detail-top{display:flex;align-items:center;justify-content:space-between;gap:9px;flex-wrap:wrap}
+.analysis-detail-heading{margin-bottom:12px}
+.analysis-detail-heading>strong{font-size:13px}
+.analysis-navigator{display:flex;align-items:center;gap:7px}
+.analysis-navigator>span{font-size:11px;color:#687b8e}
+.analysis-detail-top{margin-bottom:12px}
+.analysis-detail-top h3{font-size:16px;margin:0}
+.analysis-detail-top span{color:#687a8c;font-size:11px}
+.analysis-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:13px}
+.analysis-kpis>div{border:1px solid #dce5ed;border-radius:4px;background:#f9fbfd;padding:12px 8px;font-size:11px;color:#67798a}
+.analysis-kpis strong{display:block;font-size:20px;margin-top:4px;color:#2b4155}
+.analysis-kpis .is-drop,.analysis-person .is-drop{color:#b74646}
+.analysis-kpis .is-rise,.analysis-person .is-rise{color:#237b59}
+.analysis-chart{background:#fff;border:1px solid #e2e8ee;border-radius:4px;margin-bottom:13px;padding:9px;overflow:auto}
+.analysis-chart svg{display:block;width:100%;max-height:275px}
+.analysis-explanations{background:#f6f8fb;border-radius:4px;padding:12px;margin-bottom:12px;font-size:12px}
+.analysis-explanations>strong{display:block;margin-bottom:6px}
+.analysis-explanations p{margin:5px 0;line-height:1.5}
+.analysis-history{font-size:11px}
+.analysis-history td,.analysis-history th{padding:7px 6px}
+.analysis-history td:nth-child(n+3){font-variant-numeric:tabular-nums;text-align:center}
+.analysis-view>.muted.tiny{margin-top:13px}
+@media(max-width:1060px){
+ .analysis-category-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .analysis-controls{grid-template-columns:1fr 1fr}
+ .analysis-controls label:last-child{grid-column:1/-1}
+}
+@media(max-width:750px){
+ .analysis-layout{grid-template-columns:minmax(0,1fr)}
+ .analysis-roster{position:static}
+ .analysis-roster-list{max-height:210px}
+ .analysis-controls{grid-template-columns:minmax(0,1fr)}
+ .analysis-controls label:last-child{grid-column:auto}
+ .analysis-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media print{.analysis-view{display:none!important}}
