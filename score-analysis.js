@@ -73,7 +73,9 @@
     if(last4.length===4&&last4.every(v=>v!=null)&&
       (!subjectCounts||subjectCounts.slice(-4).every(n=>n>=2&&n===subjectCounts.at(-1)))){
       const span=Math.max(...last4)-Math.min(...last4);
-      if(span>=SWING)add('unstable','直近4回の最大・最小差 '+span.toFixed(1));
+      const steps=last4.slice(1).map((v,i)=>v-last4[i]);
+      const changedDirection=steps.some(v=>v>0)&&steps.some(v=>v<0);
+      if(span>=SWING&&changedDirection)add('unstable','上昇と下降を繰り返し、直近4回の最大・最小差 '+span.toFixed(1));
     }
     return {student,series:key,all,values,latest,previous,recent,flags,reasons,
       hasData:available.length>=2,available:available.length};
@@ -157,7 +159,7 @@
         '<p class="muted">この条件に該当する生徒はいません。</p>')+'</div></aside>'+
       '<section class="analysis-details"><div class="analysis-detail-heading"><strong>分析詳細</strong><div class="analysis-navigator"><button id="analysisPrev" class="btn small" type="button">← 前へ</button><span id="analysisPosition">'+(chosen?matches.indexOf(chosen)+1:0)+' / '+matches.length+'名</span><button id="analysisNext" class="btn small" type="button">次へ →</button></div></div>'+
       '<div id="analysisDetailsContent">'+linesFor(chosen)+'</div></section>'+
-      '</div><p class="muted tiny">判定基準：直近 ±5以上／急変 ±8以上／3回連続上昇・下降（計5以上）／直近4回の変動幅12以上。同じ模試シリーズ内の連続する回を比較します。未受験は0点とみなさず、小学生の総合偏差値は受験科目数が異なる回を比較しません。</p></div>';
+      '</div><p class="muted tiny">判定基準：直近 ±5以上／急変 ±8以上／3回連続上昇・下降（計5以上）／直近4回の変動幅12以上かつ上昇・下降が混在。同じ模試シリーズ内の連続する回を比較します。未受験は0点とみなさず、小学生の総合偏差値は受験科目数が異なる回を比較しません。</p></div>';
   }
   function navigate(step){
     const list=filtered(entries()),idx=list.findIndex(r=>r.student.id===selectedId);
