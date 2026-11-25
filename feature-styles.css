@@ -328,3 +328,21 @@
  .analysis-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 @media print{.analysis-view{display:none!important}}
+
+/* v44: Editable analysis thresholds, collapsed by default. */
+.analysis-threshold-panel{border:1px solid #d6e0e8;background:#fff;border-radius:5px;margin:0 0 14px;overflow:hidden}
+.analysis-threshold-panel>summary{padding:12px 14px;cursor:pointer;display:flex;align-items:center;gap:12px;font-size:13px;font-weight:700;color:#33485d}
+.analysis-threshold-panel>summary:hover{background:#f4f8fb}
+.analysis-threshold-panel>summary span{font-weight:400;font-size:11px;color:#748293}
+.analysis-threshold-panel[open]>summary{border-bottom:1px solid #e4e9ef}
+.analysis-threshold-body{padding:12px 14px 14px}
+.analysis-threshold-body>p{margin:0 0 12px}
+.analysis-threshold-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.analysis-threshold-grid>label{display:grid;gap:6px;min-width:0;font-size:12px;font-weight:650;color:#41566b}
+.analysis-threshold-field{display:flex;align-items:center;gap:7px;min-width:0}
+.analysis-threshold-field .field{min-width:0;width:100%;font-weight:400}
+.analysis-threshold-field span{white-space:nowrap;font-size:11px;color:#697a8b}
+.analysis-threshold-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px}
+@media(max-width:1000px){.analysis-threshold-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.analysis-threshold-grid{grid-template-columns:minmax(0,1fr)}}
+@media print{.analysis-threshold-panel{display:none!important}}
