@@ -59,16 +59,18 @@
       if(recent>=RAPID)add('rapidUp','直近大幅上昇：'+recentReason);
       else if(recent>=RISE)add('up','直近上昇：'+recentReason);
     }
+    // 継続上昇・下降: 直近3回の模試（2区間）が同方向で、合計5以上。
+    // 4回以上の連続上昇・下降も、この直近3回の判定に含まれる。
     const last4=values.slice(-4);
-    const last3=values.slice(-4); // 4 results are necessary for three successive moves.
-    if(last3.length===4&&last3.every(v=>v!=null)&&
-      (!subjectCounts||subjectCounts.slice(-4).every(n=>n>=2&&n===subjectCounts.at(-1)))){
+    const last3=values.slice(-3);
+    const last3Compatible=!subjectCounts||subjectCounts.slice(-3).every(n=>n>=2&&n===subjectCounts.at(-1));
+    if(last3.length===3&&last3.every(v=>v!=null)&&last3Compatible){
       const steps=last3.slice(1).map((v,i)=>v-last3[i]);
-      const total=last3[3]-last3[0];
+      const total=last3[2]-last3[0];
       if(steps.every(x=>x<0)&&total<=-5)
-        add('sustainedDown','3回連続下降：'+fmtDiff(total)+'（'+last3[0].toFixed(1)+' → '+last3[3].toFixed(1)+'）');
+        add('sustainedDown','直近3回の模試で連続下降：'+fmtDiff(total)+'（'+last3[0].toFixed(1)+' → '+last3[2].toFixed(1)+'）');
       if(steps.every(x=>x>0)&&total>=5)
-        add('sustainedUp','3回連続上昇：'+fmtDiff(total)+'（'+last3[0].toFixed(1)+' → '+last3[3].toFixed(1)+'）');
+        add('sustainedUp','直近3回の模試で連続上昇：'+fmtDiff(total)+'（'+last3[0].toFixed(1)+' → '+last3[2].toFixed(1)+'）');
     }
     if(last4.length===4&&last4.every(v=>v!=null)&&
       (!subjectCounts||subjectCounts.slice(-4).every(n=>n>=2&&n===subjectCounts.at(-1)))){
@@ -159,7 +161,7 @@
         '<p class="muted">この条件に該当する生徒はいません。</p>')+'</div></aside>'+
       '<section class="analysis-details"><div class="analysis-detail-heading"><strong>分析詳細</strong><div class="analysis-navigator"><button id="analysisPrev" class="btn small" type="button">← 前へ</button><span id="analysisPosition">'+(chosen?matches.indexOf(chosen)+1:0)+' / '+matches.length+'名</span><button id="analysisNext" class="btn small" type="button">次へ →</button></div></div>'+
       '<div id="analysisDetailsContent">'+linesFor(chosen)+'</div></section>'+
-      '</div><p class="muted tiny">判定基準：直近 ±5以上／急変 ±8以上／3回連続上昇・下降（計5以上）／直近4回の変動幅12以上かつ上昇・下降が混在。同じ模試シリーズ内の連続する回を比較します。未受験は0点とみなさず、小学生の総合偏差値は受験科目数が異なる回を比較しません。</p></div>';
+      '</div><p class="muted tiny">判定基準：直近 ±5以上／急変 ±8以上／直近3回の模試で連続上昇・下降（計5以上）／直近4回の変動幅12以上かつ上昇・下降が混在。同じ模試シリーズ内の連続する回を比較します。未受験は0点とみなさず、小学生の総合偏差値は受験科目数が異なる回を比較しません。</p></div>';
   }
   function navigate(step){
     const list=filtered(entries()),idx=list.findIndex(r=>r.student.id===selectedId);
