@@ -25,7 +25,7 @@
     }catch(_){return {...defaults};}
   }
   let thresholds=loadThresholds(),settingsOpen=false;
-  let subject=null,series=null,category='all',selectedId=null,query='',sort='priority';
+  let subject=null,series=null,category='all',selectedId=null,query='',sort='auto';
   const labels={
     rapidDown:'直近急落',down:'直近下降',sustainedDown:'継続下降',
     rapidUp:'直近大幅上昇',up:'直近上昇',sustainedUp:'継続上昇',
@@ -123,13 +123,38 @@
     if(row.flags.includes('unstable'))return 6;
     return 7;
   }
+  // Automatic ordering follows the selected classification rather than the
+  // global warning priority; manual sorting remains available at any time.
+  const defaultSortForCategory=()=>({
+    rapidDown:'drop',down:'drop',sustainedDown:'sustainedDrop',
+    rapidUp:'rise',up:'rise',sustainedUp:'sustainedRise',
+    unstable:'swing'
+  })[category]||'priority';
+  const recentTotal=row=>{
+    const v=row.values.slice(-3);
+    return v.length===3&&v.every(n=>n!=null)?v[2]-v[0]:null;
+  };
+  const recentSwing=row=>{
+    const v=row.values.slice(-4);
+    return v.length===4&&v.every(n=>n!=null)?Math.max(...v)-Math.min(...v):null;
+  };
+  const compareMissingLast=(a,b,direction)=>{
+    if(a==null)return b==null?0:1;
+    if(b==null)return -1;
+    return direction*(a-b);
+  };
   function filtered(rows){
     const result=rows.filter(row=>row.hasData&&matchesAnalysis(row)&&norm(row.student.name).includes(norm(query)));
+    const effectiveSort=sort==='auto'?defaultSortForCategory():sort;
     result.sort((a,b)=>{
-      if(sort==='rise')return (b.recent??-Infinity)-(a.recent??-Infinity)||a.student.name.localeCompare(b.student.name,'ja');
-      if(sort==='drop')return (a.recent??Infinity)-(b.recent??Infinity)||a.student.name.localeCompare(b.student.name,'ja');
-      if(sort==='name')return a.student.name.localeCompare(b.student.name,'ja');
-      return priority(a)-priority(b)||(a.recent??0)-(b.recent??0)||a.student.name.localeCompare(b.student.name,'ja');
+      let comparison=0;
+      if(effectiveSort==='rise')comparison=compareMissingLast(a.recent,b.recent,-1);
+      else if(effectiveSort==='drop')comparison=compareMissingLast(a.recent,b.recent,1);
+      else if(effectiveSort==='sustainedRise')comparison=compareMissingLast(recentTotal(a),recentTotal(b),-1);
+      else if(effectiveSort==='sustainedDrop')comparison=compareMissingLast(recentTotal(a),recentTotal(b),1);
+      else if(effectiveSort==='swing')comparison=compareMissingLast(recentSwing(a),recentSwing(b),-1);
+      else if(effectiveSort==='priority')comparison=priority(a)-priority(b)||(a.recent??0)-(b.recent??0);
+      return comparison||a.student.name.localeCompare(b.student.name,'ja');
     });
     return result;
   }
@@ -200,7 +225,7 @@
       '<div class="analysis-intro"><strong>偏差値の変化から生徒を抽出</strong><p>上昇・下降・乱高下を同じ画面で確認できます。'+escapeHTML(year)+'年度・'+escapeHTML(grade)+'の登録済み模試を対象にしています。</p></div>'+
       '<div class="analysis-controls"><label>分析科目<select id="analysisSubject" class="field">'+compatibleFields().map(([k,l])=>opt(k,l,subject)).join('')+'</select></label>'+
       '<label>模試シリーズ<select id="analysisSeries" class="field">'+(groups().length?groups().map(([k])=>opt(k,k,series)).join(''):opt('','模試が未登録',''))+'</select></label>'+
-      '<label>表示順<select id="analysisSort" class="field">'+[['priority','確認優先度順'],['rise','直近上昇幅が大きい順'],['drop','直近下降幅が大きい順'],['name','氏名順']].map(([k,l])=>opt(k,l,sort)).join('')+'</select></label></div>'+
+      '<label>表示順<select id="analysisSort" class="field">'+[['auto','分類に合わせて自動'],['priority','確認優先度順'],['rise','直近上昇幅が大きい順'],['drop','直近下降幅が大きい順'],['sustainedRise','継続上昇幅が大きい順'],['sustainedDrop','継続下降幅が大きい順'],['swing','変動幅が大きい順'],['name','氏名順']].map(([k,l])=>opt(k,l,sort)).join('')+'</select></label></div>'+
       thresholdControls()+
       '<div class="analysis-category-grid">'+cats+'</div>'+
       '<div class="analysis-layout">'+
@@ -263,7 +288,7 @@
       if(next){next.focus();next.setSelectionRange(pos,pos);}
     };
     document.querySelectorAll('[data-analysis-category]').forEach(button=>
-      button.onclick=()=>{category=button.dataset.analysisCategory;selectedId=null;render()});
+      button.onclick=()=>{category=button.dataset.analysisCategory;sort='auto';selectedId=null;render()});
     document.querySelectorAll('[data-analysis-student]').forEach(button=>
       button.onclick=()=>selectStudent(button.dataset.analysisStudent));
     const prev=document.getElementById('analysisPrev'),next=document.getElementById('analysisNext');
