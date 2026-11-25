@@ -2,7 +2,29 @@
 /* Read-only local exam trend analysis. All comparisons use saved deviation values
  * from the active year/grade, never grade students by a single score level. */
 (() => {
-  const RISE=5,RAPID=8,SWING=12;
+  const SETTINGS_KEY='mock-exam-analysis-thresholds-v1';
+  const defaults=Object.freeze({up:5,rapidUp:8,down:5,rapidDown:8,sustained:5,swing:12});
+  const settingLabels=[
+    ['up','直近上昇'],['rapidUp','直近大幅上昇'],
+    ['down','直近下降'],['rapidDown','直近急落'],
+    ['sustained','継続上昇・下降（合計）'],['swing','乱高下（最大・最小差）']
+  ];
+  function loadThresholds(){
+    try{
+      const saved=JSON.parse(localStorage.getItem(SETTINGS_KEY)||'null');
+      if(!saved||typeof saved!=='object'||Array.isArray(saved))return {...defaults};
+      const values={...defaults};
+      for(const key of Object.keys(defaults)){
+        const number=Number(saved[key]);
+        if(saved[key]!==null&&saved[key]!==undefined&&Number.isFinite(number)&&number>0&&number<=50)
+          values[key]=number;
+      }
+      if(values.rapidUp<values.up)values.rapidUp=values.up;
+      if(values.rapidDown<values.down)values.rapidDown=values.down;
+      return values;
+    }catch(_){return {...defaults};}
+  }
+  let thresholds=loadThresholds(),settingsOpen=false;
   let subject=null,series=null,category='all',selectedId=null,query='',sort='priority';
   const labels={
     rapidDown:'直近急落',down:'直近下降',sustainedDown:'継続下降',
@@ -54,10 +76,10 @@
     const add=(flag,text)=>{flags.push(flag);reasons.push(text)};
     const recentReason=recent==null?'':('前回 '+previous.toFixed(1)+' → 今回 '+latest.toFixed(1)+'（'+fmtDiff(recent)+'）');
     if(recent!=null){
-      if(recent<=-RAPID)add('rapidDown','直近急落：'+recentReason);
-      else if(recent<=-RISE)add('down','直近下降：'+recentReason);
-      if(recent>=RAPID)add('rapidUp','直近大幅上昇：'+recentReason);
-      else if(recent>=RISE)add('up','直近上昇：'+recentReason);
+      if(recent<=-thresholds.rapidDown)add('rapidDown','直近急落：'+recentReason);
+      if(recent<=-thresholds.down)add('down','直近下降：'+recentReason);
+      if(recent>=thresholds.rapidUp)add('rapidUp','直近大幅上昇：'+recentReason);
+      if(recent>=thresholds.up)add('up','直近上昇：'+recentReason);
     }
     // 継続上昇・下降: 直近3回の模試（2区間）が同方向で、合計5以上。
     // 4回以上の連続上昇・下降も、この直近3回の判定に含まれる。
@@ -67,9 +89,9 @@
     if(last3.length===3&&last3.every(v=>v!=null)&&last3Compatible){
       const steps=last3.slice(1).map((v,i)=>v-last3[i]);
       const total=last3[2]-last3[0];
-      if(steps.every(x=>x<0)&&total<=-5)
+      if(steps.every(x=>x<0)&&total<=-thresholds.sustained)
         add('sustainedDown','直近3回の模試で連続下降：'+fmtDiff(total)+'（'+last3[0].toFixed(1)+' → '+last3[2].toFixed(1)+'）');
-      if(steps.every(x=>x>0)&&total>=5)
+      if(steps.every(x=>x>0)&&total>=thresholds.sustained)
         add('sustainedUp','直近3回の模試で連続上昇：'+fmtDiff(total)+'（'+last3[0].toFixed(1)+' → '+last3[2].toFixed(1)+'）');
     }
     if(last4.length===4&&last4.every(v=>v!=null)&&
@@ -77,7 +99,7 @@
       const span=Math.max(...last4)-Math.min(...last4);
       const steps=last4.slice(1).map((v,i)=>v-last4[i]);
       const changedDirection=steps.some(v=>v>0)&&steps.some(v=>v<0);
-      if(span>=SWING&&changedDirection)add('unstable','上昇と下降を繰り返し、直近4回の最大・最小差 '+span.toFixed(1));
+      if(span>=thresholds.swing&&changedDirection)add('unstable','上昇と下降を繰り返し、直近4回の最大・最小差 '+span.toFixed(1));
     }
     return {student,series:key,all,values,latest,previous,recent,flags,reasons,
       hasData:available.length>=2,available:available.length};
@@ -110,6 +132,34 @@
       return priority(a)-priority(b)||(a.recent??0)-(b.recent??0)||a.student.name.localeCompare(b.student.name,'ja');
     });
     return result;
+  }
+  function updateThreshold(key,raw){
+    if(!Object.prototype.hasOwnProperty.call(defaults,key))return false;
+    const value=Number(raw);
+    if(!Number.isFinite(value)||value<=0||value>50||Math.round(value*10)!==value*10){
+      toast('判定基準は0より大きく50以下、0.1刻みの数値で入力してください。','error');
+      return false;
+    }
+    const next={...thresholds,[key]:value};
+    if(next.rapidUp<next.up||next.rapidDown<next.down){
+      toast('大幅上昇・急落の基準は、通常の上昇・下降の基準以上にしてください。','error');
+      return false;
+    }
+    thresholds=next;
+    try{localStorage.setItem(SETTINGS_KEY,JSON.stringify(thresholds));}
+    catch(_){toast('判定基準をブラウザに保存できませんでした。','error');}
+    return true;
+  }
+  function thresholdControls(){
+    return '<details id="analysisThresholdPanel" class="analysis-threshold-panel" '+(settingsOpen?'open':'')+'>'+
+      '<summary>判定基準を調整 <span>偏差値の変化幅を変更</span></summary>'+
+      '<div class="analysis-threshold-body"><p class="muted tiny">変更すると抽出人数と判定理由をすぐに再計算します。設定はこのブラウザ内に保存され、すべての学年・科目の分析に共通で適用されます。</p>'+
+      '<div class="analysis-threshold-grid">'+settingLabels.map(([key,label])=>
+        '<label>'+label+'<div class="analysis-threshold-field"><input class="field" type="number" min="0.1" max="50" step="0.1" data-threshold="'+key+'" value="'+thresholds[key]+'"><span>以上</span></div></label>'
+      ).join('')+'</div>'+
+      '<div class="analysis-threshold-actions"><button class="btn small" id="analysisResetThresholds" type="button">初期値に戻す</button>'+
+      '<span class="muted tiny">大幅上昇・急落の基準は通常の基準以上に設定してください。</span></div>'+
+      '</div></details>';
   }
   const opt=(val,label,chosen)=>'<option value="'+escapeHTML(val)+'" '+(val===chosen?'selected':'')+'>'+escapeHTML(label)+'</option>';
   function badge(flag){
@@ -151,6 +201,7 @@
       '<div class="analysis-controls"><label>分析科目<select id="analysisSubject" class="field">'+compatibleFields().map(([k,l])=>opt(k,l,subject)).join('')+'</select></label>'+
       '<label>模試シリーズ<select id="analysisSeries" class="field">'+(groups().length?groups().map(([k])=>opt(k,k,series)).join(''):opt('','模試が未登録',''))+'</select></label>'+
       '<label>表示順<select id="analysisSort" class="field">'+[['priority','確認優先度順'],['rise','直近上昇幅が大きい順'],['drop','直近下降幅が大きい順'],['name','氏名順']].map(([k,l])=>opt(k,l,sort)).join('')+'</select></label></div>'+
+      thresholdControls()+
       '<div class="analysis-category-grid">'+cats+'</div>'+
       '<div class="analysis-layout">'+
       '<aside class="analysis-roster"><div class="analysis-roster-top"><strong>該当生徒</strong><span>'+matches.length+'名</span></div>'+
@@ -161,7 +212,7 @@
         '<p class="muted">この条件に該当する生徒はいません。</p>')+'</div></aside>'+
       '<section class="analysis-details"><div class="analysis-detail-heading"><strong>分析詳細</strong><div class="analysis-navigator"><button id="analysisPrev" class="btn small" type="button">← 前へ</button><span id="analysisPosition">'+(chosen?matches.indexOf(chosen)+1:0)+' / '+matches.length+'名</span><button id="analysisNext" class="btn small" type="button">次へ →</button></div></div>'+
       '<div id="analysisDetailsContent">'+linesFor(chosen)+'</div></section>'+
-      '</div><p class="muted tiny">判定基準：直近 ±5以上／急変 ±8以上／直近3回の模試で連続上昇・下降（計5以上）／直近4回の変動幅12以上かつ上昇・下降が混在。同じ模試シリーズ内の連続する回を比較します。未受験は0点とみなさず、小学生の総合偏差値は受験科目数が異なる回を比較しません。</p></div>';
+      '</div><p class="muted tiny">判定基準：直近上昇 +'+thresholds.up+'以上・大幅上昇 +'+thresholds.rapidUp+'以上／直近下降 −'+thresholds.down+'以上・急落 −'+thresholds.rapidDown+'以上／直近3回の模試で連続上昇・下降（合計'+thresholds.sustained+'以上）／直近4回の変動幅'+thresholds.swing+'以上かつ上昇・下降が混在。同じ模試シリーズ内の連続する回を比較します。未受験は0点とみなさず、小学生の総合偏差値は受験科目数が異なる回を比較しません。</p></div>';
   }
   function navigate(step){
     const list=filtered(entries()),idx=list.findIndex(r=>r.student.id===selectedId);
@@ -183,6 +234,22 @@
     if(next)next.disabled=list.indexOf(row)===list.length-1;
   }
   function bind(){
+    const thresholdPanel=document.getElementById('analysisThresholdPanel');
+    if(thresholdPanel)thresholdPanel.addEventListener('toggle',()=>{settingsOpen=thresholdPanel.open;});
+    document.querySelectorAll('[data-threshold]').forEach(input=>{
+      input.onchange=()=>{
+        settingsOpen=true;
+        if(updateThreshold(input.dataset.threshold,input.value))render();
+        else input.value=thresholds[input.dataset.threshold];
+      };
+    });
+    const reset=document.getElementById('analysisResetThresholds');
+    if(reset)reset.onclick=()=>{
+      thresholds={...defaults};settingsOpen=true;
+      try{localStorage.setItem(SETTINGS_KEY,JSON.stringify(thresholds));}
+      catch(_){toast('判定基準をブラウザに保存できませんでした。','error');}
+      render();
+    };
     const subjectInput=document.getElementById('analysisSubject');
     if(subjectInput)subjectInput.onchange=()=>{subject=subjectInput.value;selectedId=null;render()};
     const seriesInput=document.getElementById('analysisSeries');
