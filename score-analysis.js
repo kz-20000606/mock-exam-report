@@ -26,6 +26,7 @@
   }
   let thresholds=loadThresholds(),settingsOpen=false;
   let subject=null,series=null,category='all',selectedId=null,query='',sort='auto';
+  let analysisMode='all';
   const labels={
     rapidDown:'直近急落',down:'直近下降',sustainedDown:'継続下降',
     rapidUp:'直近大幅上昇',up:'直近上昇',sustainedUp:'継続上昇',
@@ -104,7 +105,11 @@
     return {student,series:key,all,values,latest,previous,recent,flags,reasons,
       hasData:available.length>=2,available:available.length};
   }
+  const isUpFlag=k=>['up','rapidUp','sustainedUp'].includes(k);
+  const isDownFlag=k=>['down','rapidDown','sustainedDown'].includes(k);
   function matchesAnalysis(row){
+    if(category==='upGroup')return row.flags.some(isUpFlag);
+    if(category==='downGroup')return row.flags.some(isDownFlag);
     return category==='all'||row.flags.includes(category);
   }
   function entries(){
@@ -128,7 +133,7 @@
   const defaultSortForCategory=()=>({
     rapidDown:'drop',down:'drop',sustainedDown:'sustainedDrop',
     rapidUp:'rise',up:'rise',sustainedUp:'sustainedRise',
-    unstable:'swing'
+    unstable:'swing',upGroup:'rise',downGroup:'drop'
   })[category]||'priority';
   const recentTotal=row=>{
     const v=row.values.slice(-3);
@@ -177,7 +182,7 @@
   }
   function thresholdControls(){
     return '<details id="analysisThresholdPanel" class="analysis-threshold-panel" '+(settingsOpen?'open':'')+'>'+
-      '<summary>判定基準を調整 <span>偏差値の変化幅を変更</span></summary>'+
+      '<summary><span class="analysis-threshold-summary-name">⚙ 判定基準を調整 <small>偏差値の変化幅を変更</small></span><span class="analysis-threshold-chevron" aria-hidden="true"></span></summary>'+
       '<div class="analysis-threshold-body"><p class="muted tiny">変更すると抽出人数と判定理由をすぐに再計算します。設定はこのブラウザ内に保存され、すべての学年・科目の分析に共通で適用されます。</p>'+
       '<div class="analysis-threshold-grid">'+settingLabels.map(([key,label])=>
         '<label>'+label+'<div class="analysis-threshold-field"><input class="field" type="number" min="0.1" max="50" step="0.1" data-threshold="'+key+'" value="'+thresholds[key]+'"><span>以上</span></div></label>'
@@ -218,18 +223,37 @@
     if(!matches.some(r=>r.student.id===selectedId))selectedId=matches[0]?.student.id||null;
     const chosen=matches.find(r=>r.student.id===selectedId);
     const [year,grade]=activeWorkspace.split(':');
-    const counts=Object.fromEntries(categories.map(([k])=>[k,rows.filter(r=>r.hasData&&(k==='all'||r.flags.includes(k))).length]));
-    const cats=categories.map(([key,label])=>
-      '<button class="analysis-category '+(category===key?'selected':'')+'" data-analysis-category="'+key+'"><span>'+label+'</span><strong>'+counts[key]+'名</strong></button>').join('');
+    const countFor=key=>rows.filter(r=>r.hasData&&(
+      key==='all'||key==='upGroup'&&r.flags.some(isUpFlag)||
+      key==='downGroup'&&r.flags.some(isDownFlag)||
+      key!=='upGroup'&&key!=='downGroup'&&r.flags.includes(key)
+    )).length;
+    const groupsUI=[
+      {key:'all',title:'すべて',description:'全生徒の変化',glyph:'≡'},
+      {key:'up',title:'上昇傾向',description:'成績が伸びている生徒',glyph:'↗'},
+      {key:'down',title:'下降傾向',description:'確認したい生徒',glyph:'↘'},
+      {key:'unstable',title:'乱高下',description:'変動が大きい生徒',glyph:'↕'}
+    ];
+    const mainCount={all:countFor('all'),up:countFor('upGroup'),down:countFor('downGroup'),unstable:countFor('unstable')};
+    const modeButtons=groupsUI.map(item=>'<button type="button" class="analysis-mode-card analysis-mode-'+item.key+(analysisMode===item.key?' is-active':'')+'" data-analysis-mode="'+item.key+'" aria-pressed="'+(analysisMode===item.key)+'">'+
+      '<span class="analysis-mode-icon" aria-hidden="true">'+item.glyph+'</span><span class="analysis-mode-info"><strong>'+item.title+'</strong><small>'+item.description+'</small></span>'+
+      '<span class="analysis-mode-count">'+mainCount[item.key]+'<small>名</small></span></button>').join('');
+    const subs=analysisMode==='up'?[['upGroup','上昇した生徒すべて'],['up','直近上昇'],['rapidUp','大幅上昇'],['sustainedUp','継続上昇']]
+      :analysisMode==='down'?[['downGroup','下降した生徒すべて'],['down','直近下降'],['rapidDown','直近急落'],['sustainedDown','継続下降']]
+      :[];
+    const subButtons=subs.length?'<div class="analysis-subfilters" aria-label="詳しい分類">'+subs.map(([key,label])=>
+      '<button type="button" class="analysis-subfilter'+(category===key?' is-active':'')+'" data-analysis-category="'+key+'" aria-pressed="'+(category===key)+'">'+label+' <span>'+countFor(key)+'</span></button>').join('')+'</div>':'';
     return '<div class="analysis-view">'+
-      '<div class="analysis-intro"><strong>偏差値の変化から生徒を抽出</strong><p>上昇・下降・乱高下を同じ画面で確認できます。'+escapeHTML(year)+'年度・'+escapeHTML(grade)+'の登録済み模試を対象にしています。</p></div>'+
+      '<section class="analysis-filter-panel"><div class="analysis-panel-title"><span class="analysis-section-number">1</span><div><strong>分析条件</strong><p>'+escapeHTML(year)+'年度・'+escapeHTML(grade)+'の登録済み模試から分析します。</p></div></div>'+
       '<div class="analysis-controls"><label>分析科目<select id="analysisSubject" class="field">'+compatibleFields().map(([k,l])=>opt(k,l,subject)).join('')+'</select></label>'+
-      '<label>模試シリーズ<select id="analysisSeries" class="field">'+(groups().length?groups().map(([k])=>opt(k,k,series)).join(''):opt('','模試が未登録',''))+'</select></label>'+
-      '<label>表示順<select id="analysisSort" class="field">'+[['auto','分類に合わせて自動'],['priority','確認優先度順'],['rise','直近上昇幅が大きい順'],['drop','直近下降幅が大きい順'],['sustainedRise','継続上昇幅が大きい順'],['sustainedDrop','継続下降幅が大きい順'],['swing','変動幅が大きい順'],['name','氏名順']].map(([k,l])=>opt(k,l,sort)).join('')+'</select></label></div>'+
-      thresholdControls()+
-      '<div class="analysis-category-grid">'+cats+'</div>'+
+      '<label>模試シリーズ<select id="analysisSeries" class="field">'+(groups().length?groups().map(([k])=>opt(k,k,series)).join(''):opt('','模試が未登録',''))+'</select></label></div>'+
+      thresholdControls()+'</section>'+
+      '<section class="analysis-classification-panel"><div class="analysis-panel-title"><span class="analysis-section-number">2</span><div><strong>成績変化の分類</strong><p>分類を選ぶと、該当する生徒の一覧が切り替わります。</p></div></div>'+
+      '<div class="analysis-mode-grid">'+modeButtons+'</div>'+subButtons+'</section>'+
+      '<div class="analysis-panel-title analysis-result-title"><span class="analysis-section-number">3</span><div><strong>分析結果</strong><p>左の氏名を選ぶと右側の分析詳細が切り替わります。</p></div></div>'+
       '<div class="analysis-layout">'+
       '<aside class="analysis-roster"><div class="analysis-roster-top"><strong>該当生徒</strong><span>'+matches.length+'名</span></div>'+
+      '<label class="analysis-roster-sort">表示順<select id="analysisSort" class="field">'+[['auto','分類に合わせて自動'],['priority','確認優先度順'],['rise','直近上昇幅が大きい順'],['drop','直近下降幅が大きい順'],['sustainedRise','継続上昇幅が大きい順'],['sustainedDrop','継続下降幅が大きい順'],['swing','変動幅が大きい順'],['name','氏名順']].map(([k,l])=>opt(k,l,sort)).join('')+'</select></label>'+
       '<input id="analysisSearch" class="field" type="search" placeholder="氏名で絞り込み" value="'+escapeHTML(query)+'">'+
       '<div class="analysis-roster-list">'+(matches.length?matches.map(row=>
         '<button class="analysis-person '+(selectedId===row.student.id?'active':'')+'" data-analysis-student="'+escapeHTML(row.student.id)+'" type="button"><span class="analysis-person-name">'+escapeHTML(row.student.name)+'</span>'+
@@ -287,6 +311,11 @@
       const next=document.getElementById('analysisSearch');
       if(next){next.focus();next.setSelectionRange(pos,pos);}
     };
+    document.querySelectorAll('[data-analysis-mode]').forEach(button=>button.onclick=()=>{
+      analysisMode=button.dataset.analysisMode;
+      category=analysisMode==='up'?'upGroup':analysisMode==='down'?'downGroup':analysisMode==='unstable'?'unstable':'all';
+      sort='auto';selectedId=null;render();
+    });
     document.querySelectorAll('[data-analysis-category]').forEach(button=>
       button.onclick=()=>{category=button.dataset.analysisCategory;sort='auto';selectedId=null;render()});
     document.querySelectorAll('[data-analysis-student]').forEach(button=>
