@@ -403,3 +403,12 @@
 @media(max-width:750px){.analysis-filter-panel,.analysis-classification-panel{padding:13px}.analysis-filter-panel .analysis-controls{grid-template-columns:minmax(0,1fr)}.analysis-mode-card{min-height:68px}}
 @media(max-width:520px){.analysis-mode-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.analysis-mode-card{flex-wrap:wrap}.analysis-mode-count{margin-left:auto}.analysis-mode-info small{display:none}}
 @media print{.analysis-filter-panel,.analysis-classification-panel{display:none!important}}
+
+/* v47: transparent regression line over last five exam points. */
+.analysis-regression-chart{background:#fafcff;border:1px solid #dce5ee;border-radius:6px;padding:11px 12px;margin:0 0 12px}
+.analysis-regression-chart svg{width:100%;height:auto;max-height:210px;display:block}
+.analysis-regression-caption{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;font-size:12px;color:#304c63}
+.analysis-regression-caption span{font-size:11px;color:#6d7c89}
+.analysis-regression-caption i{display:inline-block;width:18px;height:0;border-top:2px dashed #d18a38;vertical-align:middle;margin-right:5px}
+.analysis-regression-status{display:flex;gap:12px;justify-content:space-between;align-items:center;flex-wrap:wrap;padding:11px 12px;border:1px solid #dfe7ee;border-radius:5px;margin:0 0 12px;font-size:12px}
+.analysis-regression-status span{font-variant-numeric:tabular-nums;color:#455d71}
