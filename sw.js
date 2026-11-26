@@ -1,6 +1,6 @@
 /* Only public app shell assets are cached; no Excel files, reports, or student data. */
-const SHELL_CACHE='mock-exam-shell-v46';
-const SHELL=['./','./index.html','./styles.css?v=43','./feature-styles.css?v=46','./app.js?v=33','./features.js','./report-folders.js','./workspace-navigation.js?v=41','./navigation-history.js','./exam-name-editor.js?v=20','./report-exam-selection.js?v=20','./report-save-feedback.js?v=21','./elementary-support.js?v=23','./direct-pdf-download.js?v=38','./score-points.js?v=37','./archive-browser.js?v=38','./score-analysis.js?v=46','./manifest.webmanifest','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-maskable-512.png'];
+const SHELL_CACHE='mock-exam-shell-v47';
+const SHELL=['./','./index.html','./styles.css?v=43','./feature-styles.css?v=47','./app.js?v=33','./features.js','./report-folders.js','./workspace-navigation.js?v=41','./navigation-history.js','./exam-name-editor.js?v=20','./report-exam-selection.js?v=20','./report-save-feedback.js?v=21','./elementary-support.js?v=23','./direct-pdf-download.js?v=38','./score-points.js?v=37','./archive-browser.js?v=38','./score-analysis.js?v=47','./manifest.webmanifest','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-maskable-512.png'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(SHELL_CACHE).then(cache=>cache.addAll(SHELL)));self.skipWaiting()});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('mock-exam-shell-')&&key!==SHELL_CACHE).map(key=>caches.delete(key)))));self.clients.claim()});
 self.addEventListener('fetch',event=>{
