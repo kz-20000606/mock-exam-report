@@ -225,6 +225,22 @@
     const danger=flag==='rapidDown'||flag==='down'||flag==='sustainedDown';
     return '<span class="analysis-tag '+(positive?'is-up':danger?'is-down':'is-neutral')+'">'+escapeHTML(labels[flag]||flag)+'</span>';
   }
+  function trendChart(row){
+    const trend=row.trend;
+    if(!trend)return '';
+    const width=480,height=176,marginL=38,marginR=15,top=19,bottom=34;
+    const x=i=>marginL+i*(width-marginL-marginR)/Math.max(1,trend.rounds-1);
+    const ends=[trend.intercept,trend.intercept+trend.slope*(trend.rounds-1)];
+    const heights=trend.points.map(p=>p.y).concat(ends);
+    const low=Math.floor((Math.min(...heights)-3)/5)*5;
+    const high=Math.ceil((Math.max(...heights)+3)/5)*5;
+    const y=v=>top+(high-v)*(height-top-bottom)/(high-low);
+    const points=trend.points.map(p=>'<circle cx="'+x(p.x)+'" cy="'+y(p.y)+'" r="4" fill="#2571a8"><title>第'+(row.all.length-trend.rounds+p.x+1)+'回：'+p.y.toFixed(1)+'</title></circle>').join('');
+    const labels=Array.from({length:trend.rounds},(_,i)=>'<text x="'+x(i)+'" y="'+(height-9)+'" text-anchor="middle" font-size="10" fill="#66798a">'+(row.all.length-trend.rounds+i+1)+'回</text>').join('');
+    const grid=[low,high].map(v=>'<line x1="'+marginL+'" x2="'+(width-marginR)+'" y1="'+y(v)+'" y2="'+y(v)+'" stroke="#dce5ed"/><text x="'+(marginL-5)+'" y="'+(y(v)+4)+'" text-anchor="end" font-size="10" fill="#66798a">'+v+'</text>').join('');
+    const fit='<line x1="'+x(0)+'" y1="'+y(ends[0])+'" x2="'+x(trend.rounds-1)+'" y2="'+y(ends[1])+'" stroke="#d18a38" stroke-width="2.5" stroke-dasharray="7 5"/>';
+    return '<div class="analysis-regression-chart"><div class="analysis-regression-caption"><strong>直近5回の傾向（最小二乗法）</strong><span><i></i>近似直線</span></div><svg viewBox="0 0 '+width+' '+height+'" role="img" aria-label="偏差値と近似直線。傾き '+trend.slope.toFixed(2)+'"><g>'+grid+labels+fit+points+'</g></svg></div>';
+  }
   function linesFor(row){
     if(!row)return '<p class="muted">生徒を選択してください。</p>';
     const subjectName=compatibleFields().find(([k])=>k===subject)?.[1]||subject;
@@ -232,6 +248,7 @@
     return '<div class="analysis-detail-top"><h3>'+escapeHTML(row.student.name)+'</h3><span>'+escapeHTML(subjectName)+' ／ '+escapeHTML(showNameOf(row.series))+'</span></div>'+
       '<div class="analysis-kpis"><div>最新偏差値<strong>'+fmt(row.latest)+'</strong></div><div>直近前回差<strong class="'+(row.recent<0?'is-drop':row.recent>0?'is-rise':'')+'">'+fmtDiff(row.recent)+'</strong></div><div>有効データ<strong>'+row.available+'回</strong></div></div>'+
       '<div class="analysis-chart">'+chart+'</div>'+
+      trendChart(row)+
       '<div class="analysis-regression-status"><strong>直近5回までの近似直線</strong><span>'+(
         row.trend?'傾き '+(row.trend.slope>0?'+':'')+row.trend.slope.toFixed(2)+'／回（'+row.trend.count+'件から算出）':'算出不可（直近5回中3件以上の比較可能な成績が必要）'
       )+'</span></div>'+
