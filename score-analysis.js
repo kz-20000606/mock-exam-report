@@ -3,11 +3,12 @@
  * from the active year/grade, never grade students by a single score level. */
 (() => {
   const SETTINGS_KEY='mock-exam-analysis-thresholds-v1';
-  const defaults=Object.freeze({up:5,rapidUp:8,down:5,rapidDown:8,sustained:5,swing:12});
+  const defaults=Object.freeze({up:5,rapidUp:8,down:5,rapidDown:8,sustained:5,swing:12,trendUp:1,trendDown:1});
   const settingLabels=[
     ['up','直近上昇'],['rapidUp','直近大幅上昇'],
     ['down','直近下降'],['rapidDown','直近急落'],
-    ['sustained','継続上昇・下降（合計）'],['swing','乱高下（最大・最小差）']
+    ['sustained','継続上昇・下降（合計）'],['swing','乱高下（最大・最小差）'],
+    ['trendUp','長期上昇の傾き（1回あたり）'],['trendDown','長期下降の傾き（1回あたり）']
   ];
   function loadThresholds(){
     try{
@@ -30,12 +31,12 @@
   const labels={
     rapidDown:'直近急落',down:'直近下降',sustainedDown:'継続下降',
     rapidUp:'直近大幅上昇',up:'直近上昇',sustainedUp:'継続上昇',
-    unstable:'変動が大きい'
+    unstable:'変動が大きい',longUp:'長期上昇傾向',longDown:'長期下降傾向'
   };
   const categories=[
     ['all','すべて'],['rapidDown','直近急落'],['down','直近下降'],
     ['sustainedDown','継続下降'],['rapidUp','直近大幅上昇'],
-    ['up','直近上昇'],['sustainedUp','継続上昇'],['unstable','乱高下']
+    ['up','直近上昇'],['sustainedUp','継続上昇'],['longUp','長期上昇傾向'],['longDown','長期下降傾向'],['unstable','乱高下']
   ];
   const fmtDiff=n=>n==null?'—':(n>0?'+':'')+Number(n).toFixed(1);
   const nameOf=e=>String(e?.name||'').normalize('NFKC')
@@ -63,6 +64,23 @@
     const value=row?.score?.[key];
     return value===null||value===undefined||!Number.isFinite(Number(value))?null:Number(value);
   }
+  // Fit up to five most recent exam rounds. Missing rounds keep their original
+  // x coordinates; at least 3 comparable results including the latest are needed.
+  function recentTrend(values,subjectCounts){
+    const sample=values.slice(-5);
+    const counts=subjectCounts?.slice(-5)||null;
+    if(sample.length<3||sample.at(-1)==null)return null;
+    const points=sample.flatMap((value,i)=>value==null?[]:[{x:i,y:value,n:counts?.[i]}]);
+    if(points.length<3)return null;
+    if(counts&&(points.some(p=>p.n<2)||points.some(p=>p.n!==points[0].n)))return null;
+    const meanX=points.reduce((sum,p)=>sum+p.x,0)/points.length;
+    const meanY=points.reduce((sum,p)=>sum+p.y,0)/points.length;
+    const covariance=points.reduce((sum,p)=>sum+(p.x-meanX)*(p.y-meanY),0);
+    const variance=points.reduce((sum,p)=>sum+(p.x-meanX)**2,0);
+    if(!variance)return null;
+    const slope=covariance/variance;
+    return {slope,intercept:meanY-slope*meanX,rounds:sample.length,count:points.length,points};
+  }
   function analyzeSeries(student,key,group){
     const all=scoresOf(student.id,new Set(group.map(e=>e.id)));
     // Only a consecutive pair of exam rounds counts as a 'recent change'.
@@ -73,6 +91,7 @@
     const comparable=(i,j)=>!subjectCounts||(subjectCounts[i]>=2&&subjectCounts[i]===subjectCounts[j]);
     const recent=latest!=null&&previous!=null&&comparable(values.length-2,values.length-1)?latest-previous:null;
     const available=values.filter(v=>v!=null);
+    const trend=recentTrend(values,subjectCounts);
     const flags=[],reasons=[];
     const add=(flag,text)=>{flags.push(flag);reasons.push(text)};
     const recentReason=recent==null?'':('前回 '+previous.toFixed(1)+' → 今回 '+latest.toFixed(1)+'（'+fmtDiff(recent)+'）');
@@ -82,17 +101,21 @@
       if(recent>=thresholds.rapidUp)add('rapidUp','直近大幅上昇：'+recentReason);
       if(recent>=thresholds.up)add('up','直近上昇：'+recentReason);
     }
-    // 継続上昇・下降: 直近3回の模試（2区間）が同方向で、合計5以上。
-    // 4回以上の連続上昇・下降も、この直近3回の判定に含まれる。
+    // Sustained: last three rounds move in the same direction, with a
+    // matching regression slope over the recent five rounds.
+    if(trend?.slope>=thresholds.trendUp)
+      add('longUp','直近'+trend.rounds+'回の近似直線の傾き +'+trend.slope.toFixed(2)+'／回');
+    if(trend?.slope<=-thresholds.trendDown)
+      add('longDown','直近'+trend.rounds+'回の近似直線の傾き '+trend.slope.toFixed(2)+'／回');
     const last4=values.slice(-4);
     const last3=values.slice(-3);
     const last3Compatible=!subjectCounts||subjectCounts.slice(-3).every(n=>n>=2&&n===subjectCounts.at(-1));
     if(last3.length===3&&last3.every(v=>v!=null)&&last3Compatible){
       const steps=last3.slice(1).map((v,i)=>v-last3[i]);
       const total=last3[2]-last3[0];
-      if(steps.every(x=>x<0)&&total<=-thresholds.sustained)
+      if(steps.every(x=>x<0)&&total<=-thresholds.sustained&&trend?.slope<0)
         add('sustainedDown','直近3回の模試で連続下降：'+fmtDiff(total)+'（'+last3[0].toFixed(1)+' → '+last3[2].toFixed(1)+'）');
-      if(steps.every(x=>x>0)&&total>=thresholds.sustained)
+      if(steps.every(x=>x>0)&&total>=thresholds.sustained&&trend?.slope>0)
         add('sustainedUp','直近3回の模試で連続上昇：'+fmtDiff(total)+'（'+last3[0].toFixed(1)+' → '+last3[2].toFixed(1)+'）');
     }
     if(last4.length===4&&last4.every(v=>v!=null)&&
@@ -103,10 +126,10 @@
       if(span>=thresholds.swing&&changedDirection)add('unstable','上昇と下降を繰り返し、直近4回の最大・最小差 '+span.toFixed(1));
     }
     return {student,series:key,all,values,latest,previous,recent,flags,reasons,
-      hasData:available.length>=2,available:available.length};
+      hasData:available.length>=2,available:available.length,trend};
   }
-  const isUpFlag=k=>['up','rapidUp','sustainedUp'].includes(k);
-  const isDownFlag=k=>['down','rapidDown','sustainedDown'].includes(k);
+  const isUpFlag=k=>['up','rapidUp','sustainedUp','longUp'].includes(k);
+  const isDownFlag=k=>['down','rapidDown','sustainedDown','longDown'].includes(k);
   function matchesAnalysis(row){
     if(category==='upGroup')return row.flags.some(isUpFlag);
     if(category==='downGroup')return row.flags.some(isDownFlag);
@@ -121,9 +144,11 @@
   function priority(row){
     if(row.flags.includes('rapidDown'))return 0;
     if(row.flags.includes('sustainedDown'))return 1;
+    if(row.flags.includes('longDown'))return 2;
     if(row.flags.includes('down'))return 2;
     if(row.flags.includes('rapidUp'))return 3;
     if(row.flags.includes('sustainedUp'))return 4;
+    if(row.flags.includes('longUp'))return 5;
     if(row.flags.includes('up'))return 5;
     if(row.flags.includes('unstable'))return 6;
     return 7;
@@ -133,7 +158,8 @@
   const defaultSortForCategory=()=>({
     rapidDown:'drop',down:'drop',sustainedDown:'sustainedDrop',
     rapidUp:'rise',up:'rise',sustainedUp:'sustainedRise',
-    unstable:'swing',upGroup:'rise',downGroup:'drop'
+    unstable:'swing',upGroup:'rise',downGroup:'drop',
+    longUp:'trendRise',longDown:'trendDrop'
   })[category]||'priority';
   const recentTotal=row=>{
     const v=row.values.slice(-3);
@@ -158,6 +184,8 @@
       else if(effectiveSort==='sustainedRise')comparison=compareMissingLast(recentTotal(a),recentTotal(b),-1);
       else if(effectiveSort==='sustainedDrop')comparison=compareMissingLast(recentTotal(a),recentTotal(b),1);
       else if(effectiveSort==='swing')comparison=compareMissingLast(recentSwing(a),recentSwing(b),-1);
+      else if(effectiveSort==='trendRise')comparison=compareMissingLast(a.trend?.slope,b.trend?.slope,-1);
+      else if(effectiveSort==='trendDrop')comparison=compareMissingLast(a.trend?.slope,b.trend?.slope,1);
       else if(effectiveSort==='priority')comparison=priority(a)-priority(b)||(a.recent??0)-(b.recent??0);
       return comparison||a.student.name.localeCompare(b.student.name,'ja');
     });
@@ -188,7 +216,7 @@
         '<label>'+label+'<div class="analysis-threshold-field"><input class="field" type="number" min="0.1" max="50" step="0.1" data-threshold="'+key+'" value="'+thresholds[key]+'"><span>以上</span></div></label>'
       ).join('')+'</div>'+
       '<div class="analysis-threshold-actions"><button class="btn small" id="analysisResetThresholds" type="button">初期値に戻す</button>'+
-      '<span class="muted tiny">大幅上昇・急落の基準は通常の基準以上に設定してください。</span></div>'+
+      '<span class="muted tiny">長期傾向は直近5回以内の偏差値を最小二乗法で判定します（3回以上必要）。</span></div>'+
       '</div></details>';
   }
   const opt=(val,label,chosen)=>'<option value="'+escapeHTML(val)+'" '+(val===chosen?'selected':'')+'>'+escapeHTML(label)+'</option>';
@@ -204,6 +232,9 @@
     return '<div class="analysis-detail-top"><h3>'+escapeHTML(row.student.name)+'</h3><span>'+escapeHTML(subjectName)+' ／ '+escapeHTML(showNameOf(row.series))+'</span></div>'+
       '<div class="analysis-kpis"><div>最新偏差値<strong>'+fmt(row.latest)+'</strong></div><div>直近前回差<strong class="'+(row.recent<0?'is-drop':row.recent>0?'is-rise':'')+'">'+fmtDiff(row.recent)+'</strong></div><div>有効データ<strong>'+row.available+'回</strong></div></div>'+
       '<div class="analysis-chart">'+chart+'</div>'+
+      '<div class="analysis-regression-status"><strong>直近5回までの近似直線</strong><span>'+(
+        row.trend?'傾き '+(row.trend.slope>0?'+':'')+row.trend.slope.toFixed(2)+'／回（'+row.trend.count+'件から算出）':'算出不可（直近5回中3件以上の比較可能な成績が必要）'
+      )+'</span></div>'+
       '<div class="analysis-explanations"><strong>判定理由</strong>'+(
         row.reasons.length?row.reasons.map(r=>'<p>'+escapeHTML(r)+'</p>').join(''):
         '<p>設定された抽出条件に該当する大きな変化はありません。</p>'
@@ -238,8 +269,8 @@
     const modeButtons=groupsUI.map(item=>'<button type="button" class="analysis-mode-card analysis-mode-'+item.key+(analysisMode===item.key?' is-active':'')+'" data-analysis-mode="'+item.key+'" aria-pressed="'+(analysisMode===item.key)+'">'+
       '<span class="analysis-mode-icon" aria-hidden="true">'+item.glyph+'</span><span class="analysis-mode-info"><strong>'+item.title+'</strong><small>'+item.description+'</small></span>'+
       '<span class="analysis-mode-count">'+mainCount[item.key]+'<small>名</small></span></button>').join('');
-    const subs=analysisMode==='up'?[['upGroup','上昇した生徒すべて'],['up','直近上昇'],['rapidUp','大幅上昇'],['sustainedUp','継続上昇']]
-      :analysisMode==='down'?[['downGroup','下降した生徒すべて'],['down','直近下降'],['rapidDown','直近急落'],['sustainedDown','継続下降']]
+    const subs=analysisMode==='up'?[['upGroup','上昇した生徒すべて'],['up','直近上昇'],['rapidUp','大幅上昇'],['sustainedUp','継続上昇'],['longUp','長期上昇傾向']]
+      :analysisMode==='down'?[['downGroup','下降した生徒すべて'],['down','直近下降'],['rapidDown','直近急落'],['sustainedDown','継続下降'],['longDown','長期下降傾向']]
       :[];
     const subButtons=subs.length?'<div class="analysis-subfilters" aria-label="詳しい分類">'+subs.map(([key,label])=>
       '<button type="button" class="analysis-subfilter'+(category===key?' is-active':'')+'" data-analysis-category="'+key+'" aria-pressed="'+(category===key)+'">'+label+' <span>'+countFor(key)+'</span></button>').join('')+'</div>':'';
@@ -253,7 +284,7 @@
       '<div class="analysis-panel-title analysis-result-title"><span class="analysis-section-number">3</span><div><strong>分析結果</strong><p>左の氏名を選ぶと右側の分析詳細が切り替わります。</p></div></div>'+
       '<div class="analysis-layout">'+
       '<aside class="analysis-roster"><div class="analysis-roster-top"><strong>該当生徒</strong><span>'+matches.length+'名</span></div>'+
-      '<label class="analysis-roster-sort">表示順<select id="analysisSort" class="field">'+[['auto','分類に合わせて自動'],['priority','確認優先度順'],['rise','直近上昇幅が大きい順'],['drop','直近下降幅が大きい順'],['sustainedRise','継続上昇幅が大きい順'],['sustainedDrop','継続下降幅が大きい順'],['swing','変動幅が大きい順'],['name','氏名順']].map(([k,l])=>opt(k,l,sort)).join('')+'</select></label>'+
+      '<label class="analysis-roster-sort">表示順<select id="analysisSort" class="field">'+[['auto','分類に合わせて自動'],['priority','確認優先度順'],['rise','直近上昇幅が大きい順'],['drop','直近下降幅が大きい順'],['sustainedRise','継続上昇幅が大きい順'],['sustainedDrop','継続下降幅が大きい順'],['trendRise','近似直線の傾きが大きい順'],['trendDrop','近似直線の傾きが小さい順'],['swing','変動幅が大きい順'],['name','氏名順']].map(([k,l])=>opt(k,l,sort)).join('')+'</select></label>'+
       '<input id="analysisSearch" class="field" type="search" placeholder="氏名で絞り込み" value="'+escapeHTML(query)+'">'+
       '<div class="analysis-roster-list">'+(matches.length?matches.map(row=>
         '<button class="analysis-person '+(selectedId===row.student.id?'active':'')+'" data-analysis-student="'+escapeHTML(row.student.id)+'" type="button"><span class="analysis-person-name">'+escapeHTML(row.student.name)+'</span>'+
@@ -261,7 +292,7 @@
         '<p class="muted">この条件に該当する生徒はいません。</p>')+'</div></aside>'+
       '<section class="analysis-details"><div class="analysis-detail-heading"><strong>分析詳細</strong><div class="analysis-navigator"><button id="analysisPrev" class="btn small" type="button">← 前へ</button><span id="analysisPosition">'+(chosen?matches.indexOf(chosen)+1:0)+' / '+matches.length+'名</span><button id="analysisNext" class="btn small" type="button">次へ →</button></div></div>'+
       '<div id="analysisDetailsContent">'+linesFor(chosen)+'</div></section>'+
-      '</div><p class="muted tiny">判定基準：直近上昇 +'+thresholds.up+'以上・大幅上昇 +'+thresholds.rapidUp+'以上／直近下降 −'+thresholds.down+'以上・急落 −'+thresholds.rapidDown+'以上／直近3回の模試で連続上昇・下降（合計'+thresholds.sustained+'以上）／直近4回の変動幅'+thresholds.swing+'以上かつ上昇・下降が混在。同じ模試シリーズ内の連続する回を比較します。未受験は0点とみなさず、小学生の総合偏差値は受験科目数が異なる回を比較しません。</p></div>';
+      '</div><p class="muted tiny">長期傾向：直近5回以内の模試から最低3回分で近似直線を計算し、上昇は +'+thresholds.trendUp+'／回以上、下降は −'+thresholds.trendDown+'／回以下。継続上昇・下降には近似直線の傾きの符号も一致する必要があります。</p><p class="muted tiny">判定基準：直近上昇 +'+thresholds.up+'以上・大幅上昇 +'+thresholds.rapidUp+'以上／直近下降 −'+thresholds.down+'以上・急落 −'+thresholds.rapidDown+'以上／直近3回の模試で連続上昇・下降（合計'+thresholds.sustained+'以上）／直近4回の変動幅'+thresholds.swing+'以上かつ上昇・下降が混在。同じ模試シリーズ内の連続する回を比較します。未受験は0点とみなさず、小学生の総合偏差値は受験科目数が異なる回を比較しません。</p></div>';
   }
   function navigate(step){
     const list=filtered(entries()),idx=list.findIndex(r=>r.student.id===selectedId);
